@@ -224,7 +224,7 @@
         const styleWidth = hasEnd ? `width:${width}px;` : "";
         html += `<div class="mt-event cat-${ev.category}${hasEnd ? "" : " is-point"}${ev.done ? " is-done" : ""}"
                       style="left:${startX}px;top:${lane * LANE_H}px;${styleWidth}"
-                      data-id="${ev.id}" title="${escapeHtml(ev.title)}">
+                      data-id="${ev.id}" tabindex="0" role="button" title="${escapeHtml(ev.title)}">
           <span class="mt-event-time">${ev.start}</span><span class="mt-event-title">${escapeHtml(ev.title)}</span>
         </div>`;
       });
@@ -233,9 +233,13 @@
       this.el.content.innerHTML = html;
 
       this.el.content.querySelectorAll(".mt-event").forEach((node) => {
-        node.addEventListener("click", () => {
+        const openIt = () => {
           const ev = this.events.find((e) => e.id === node.dataset.id);
           if (ev) this.openModal(ev);
+        };
+        node.addEventListener("click", openIt);
+        node.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openIt(); }
         });
       });
 
@@ -262,8 +266,8 @@
       const overlay = document.createElement("div");
       overlay.className = "mt-modal-overlay";
       overlay.innerHTML = `
-        <div class="mt-modal">
-          <h2>${existingEvent ? "Modifier" : "Ajouter"} un objectif / rendez-vous</h2>
+        <div class="mt-modal" role="dialog" aria-modal="true" aria-labelledby="mt-modal-title">
+          <h2 id="mt-modal-title">${existingEvent ? "Modifier" : "Ajouter"} un objectif / rendez-vous</h2>
           <form>
             <div class="mt-field">
               <label>Titre</label>
@@ -308,7 +312,9 @@
       `;
       document.body.appendChild(overlay);
 
-      const close = () => overlay.remove();
+      const close = () => { document.removeEventListener("keydown", onKeydown); overlay.remove(); };
+      const onKeydown = (e) => { if (e.key === "Escape") close(); };
+      document.addEventListener("keydown", onKeydown);
       overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
       overlay.querySelector('[data-action="cancel"]').addEventListener("click", close);
 

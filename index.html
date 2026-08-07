@@ -3,7 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Frise chronologique jour/heure pour vos objectifs et rendez-vous du jour.">
+<meta name="theme-color" content="#009FE3">
 <title>Mémo Temps — Frise du jour</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="icons/icon-16.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="stylesheet" href="css/widget.css">
 </head>
 <body>
@@ -15,6 +21,12 @@
   <script src="js/widget.js"></script>
   <script>
     new MemoTempsWidget(document.getElementById('mt-widget-root'));
+
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch(() => {});
+      });
+    }
   </script>
 </body>
 </html>
