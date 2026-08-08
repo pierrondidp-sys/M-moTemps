@@ -168,7 +168,7 @@
 .mt-arrow:focus-visible,
 .mt-today-btn:focus-visible,
 .mt-add-btn:focus-visible,
-.mt-sound-btn:focus-visible,
+.mt-icon-btn:focus-visible,
 .mt-event:focus-visible{
   outline:2px solid var(--mt-blue);
   outline-offset:2px;
@@ -352,7 +352,7 @@
 .mt-add-btn:hover{filter:brightness(.92);transform:translateY(-1px);}
 .mt-add-btn:active{transform:translateY(0) scale(.95);}
 
-.mt-sound-btn{
+.mt-icon-btn{
   flex:0 0 auto;
   width:38px;
   height:38px;
@@ -367,7 +367,7 @@
   justify-content:center;
   transition:.15s ease;
 }
-.mt-sound-btn:hover{border-color:var(--mt-blue);color:var(--mt-blue);}
+.mt-icon-btn:hover{border-color:var(--mt-blue);color:var(--mt-blue);}
 .mt-sound-btn[aria-pressed="false"]{opacity:.55;}
 
 /* ---------- Modal ---------- */

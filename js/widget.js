@@ -12,6 +12,13 @@
   const POINT_RESERVED_WIDTH = 190;
   const STORAGE_KEY = "mt_events_v1";
   const SOUND_KEY = "mt_sound_enabled";
+  const THEME_KEY = "mt_theme";
+  const THEME_CYCLE = ["system", "light", "dark"];
+  const THEME_META = {
+    system: { icon: "🖥️", label: "Thème : système (cliquer pour clair)" },
+    light: { icon: "☀️", label: "Thème : clair (cliquer pour sombre)" },
+    dark: { icon: "🌙", label: "Thème : sombre (cliquer pour système)" }
+  };
   const ANNOUNCE_WINDOW_MIN = 2;
 
   const pad2 = (n) => String(n).padStart(2, "0");
@@ -101,8 +108,10 @@
       this.editingId = null;
       this.storageKey = options.storageKey || STORAGE_KEY;
       this.soundEnabled = localStorage.getItem(SOUND_KEY) !== "0";
+      this.theme = THEME_CYCLE.includes(localStorage.getItem(THEME_KEY)) ? localStorage.getItem(THEME_KEY) : "system";
       this.announced = new Set();
 
+      this.applyTheme();
       this.events = this.loadEvents();
       this.buildDom();
       this.render();
@@ -138,7 +147,8 @@
             </div>
             <div class="mt-header-actions">
               <button type="button" class="mt-today-btn">Aujourd'hui</button>
-              <button type="button" class="mt-sound-btn" aria-label="Activer ou couper le son" aria-pressed="true">🔊</button>
+              <button type="button" class="mt-icon-btn mt-theme-btn" aria-label="Changer le thème">🖥️</button>
+              <button type="button" class="mt-icon-btn mt-sound-btn" aria-label="Activer ou couper le son" aria-pressed="true">🔊</button>
               <button type="button" class="mt-add-btn" aria-label="Ajouter un objectif ou rendez-vous">+</button>
             </div>
           </div>
@@ -160,7 +170,8 @@
         nextBtn: this.container.querySelector(".mt-arrow-next"),
         todayBtn: this.container.querySelector(".mt-today-btn"),
         addBtn: this.container.querySelector(".mt-add-btn"),
-        soundBtn: this.container.querySelector(".mt-sound-btn")
+        soundBtn: this.container.querySelector(".mt-sound-btn"),
+        themeBtn: this.container.querySelector(".mt-theme-btn")
       };
 
       this.updateSoundBtn();
@@ -168,6 +179,16 @@
         this.soundEnabled = !this.soundEnabled;
         localStorage.setItem(SOUND_KEY, this.soundEnabled ? "1" : "0");
         this.updateSoundBtn();
+        if (this.soundEnabled) Sound.open();
+      });
+
+      this.updateThemeBtn();
+      this.el.themeBtn.addEventListener("click", () => {
+        const next = THEME_CYCLE[(THEME_CYCLE.indexOf(this.theme) + 1) % THEME_CYCLE.length];
+        this.theme = next;
+        localStorage.setItem(THEME_KEY, this.theme);
+        this.applyTheme();
+        this.updateThemeBtn();
         if (this.soundEnabled) Sound.open();
       });
 
@@ -222,6 +243,19 @@
       this.el.soundBtn.textContent = this.soundEnabled ? "🔊" : "🔇";
       this.el.soundBtn.setAttribute("aria-pressed", String(this.soundEnabled));
       this.el.soundBtn.title = this.soundEnabled ? "Couper le son" : "Activer le son";
+    }
+
+    applyTheme() {
+      if (this.theme === "system") document.documentElement.removeAttribute("data-theme");
+      else document.documentElement.setAttribute("data-theme", this.theme);
+    }
+
+    updateThemeBtn() {
+      if (!this.el.themeBtn) return;
+      const meta = THEME_META[this.theme];
+      this.el.themeBtn.textContent = meta.icon;
+      this.el.themeBtn.title = meta.label;
+      this.el.themeBtn.setAttribute("aria-label", meta.label);
     }
 
     centerOnToday(smooth) {
