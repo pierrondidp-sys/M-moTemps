@@ -7,10 +7,12 @@
   const DAYS_AFTER = 21;
   const HEADER_H = 34;
   const EVENTS_TOP = 58;
-  const LANE_H = 30;
-  const MIN_BAR_WIDTH = 62;
-  const POINT_RESERVED_WIDTH = 118;
+  const LANE_H = 42;
+  const MIN_BAR_WIDTH = 200;
+  const POINT_RESERVED_WIDTH = 190;
   const STORAGE_KEY = "mt_events_v1";
+  const SOUND_KEY = "mt_sound_enabled";
+  const ANNOUNCE_WINDOW_MIN = 2;
 
   const pad2 = (n) => String(n).padStart(2, "0");
   const dateKey = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
@@ -25,6 +27,61 @@
   function formatDayHeader(d, today) {
     const label = new Intl.DateTimeFormat("fr-FR", { weekday: "short", day: "numeric", month: "short" }).format(d);
     return diffDays(today, d) === 0 ? "Aujourd'hui" : capitalize(label.replace(".", ""));
+  }
+
+  let audioCtx = null;
+  function getAudioCtx() {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return null;
+    if (!audioCtx) audioCtx = new Ctx();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    return audioCtx;
+  }
+
+  function playTone(freq, duration, opts = {}) {
+    const ctx = getAudioCtx();
+    if (!ctx) return;
+    const t0 = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = opts.type || "sine";
+    osc.frequency.setValueAtTime(freq, t0);
+    if (opts.slideTo) osc.frequency.exponentialRampToValueAtTime(opts.slideTo, t0 + duration);
+    gain.gain.setValueAtTime(0, t0);
+    gain.gain.linearRampToValueAtTime(opts.volume || 0.12, t0 + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(t0);
+    osc.stop(t0 + duration + 0.03);
+  }
+
+  const Sound = {
+    open: () => playTone(660, 0.09, { slideTo: 880 }),
+    save: () => { playTone(660, 0.08, { slideTo: 880 }); setTimeout(() => playTone(880, 0.12, { slideTo: 1175 }), 70); },
+    delete: () => playTone(520, 0.14, { slideTo: 220, type: "triangle" }),
+    chime: () => { playTone(784, 0.16, { slideTo: 988, volume: 0.14 }); setTimeout(() => playTone(988, 0.22, { slideTo: 1318, volume: 0.12 }), 110); }
+  };
+
+  function frenchTime(t) {
+    const [h, m] = t.split(":").map(Number);
+    return m === 0 ? `${h} heures` : `${h} heures ${pad2(m)}`;
+  }
+
+  function speak(text) {
+    if (!("speechSynthesis" in window)) return;
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = "fr-FR";
+    const voices = window.speechSynthesis.getVoices();
+    const frVoice = voices.find((v) => v.lang && v.lang.toLowerCase().startsWith("fr"));
+    if (frVoice) utter.voice = frVoice;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utter);
+  }
+
+  function speakEvent(ev) {
+    const catLabel = ev.category === "objectif" ? "Objectif" : "Rendez-vous";
+    const timeLabel = ev.end ? `de ${frenchTime(ev.start)} à ${frenchTime(ev.end)}` : `à ${frenchTime(ev.start)}`;
+    speak(`${catLabel} : ${ev.title}, ${timeLabel}.`);
   }
 
   const SAMPLE_EVENTS = (todayKey, tomorrowKey) => [
@@ -43,6 +100,8 @@
       this.contentWidth = this.totalDays * DAY_WIDTH;
       this.editingId = null;
       this.storageKey = options.storageKey || STORAGE_KEY;
+      this.soundEnabled = localStorage.getItem(SOUND_KEY) !== "0";
+      this.announced = new Set();
 
       this.events = this.loadEvents();
       this.buildDom();
@@ -79,6 +138,7 @@
             </div>
             <div class="mt-header-actions">
               <button type="button" class="mt-today-btn">Aujourd'hui</button>
+              <button type="button" class="mt-sound-btn" aria-label="Activer ou couper le son" aria-pressed="true">🔊</button>
               <button type="button" class="mt-add-btn" aria-label="Ajouter un objectif ou rendez-vous">+</button>
             </div>
           </div>
@@ -99,8 +159,17 @@
         prevBtn: this.container.querySelector(".mt-arrow-prev"),
         nextBtn: this.container.querySelector(".mt-arrow-next"),
         todayBtn: this.container.querySelector(".mt-today-btn"),
-        addBtn: this.container.querySelector(".mt-add-btn")
+        addBtn: this.container.querySelector(".mt-add-btn"),
+        soundBtn: this.container.querySelector(".mt-sound-btn")
       };
+
+      this.updateSoundBtn();
+      this.el.soundBtn.addEventListener("click", () => {
+        this.soundEnabled = !this.soundEnabled;
+        localStorage.setItem(SOUND_KEY, this.soundEnabled ? "1" : "0");
+        this.updateSoundBtn();
+        if (this.soundEnabled) Sound.open();
+      });
 
       this.el.todayLabel.textContent = capitalize(
         new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(this.today)
@@ -149,6 +218,12 @@
       }, true);
     }
 
+    updateSoundBtn() {
+      this.el.soundBtn.textContent = this.soundEnabled ? "🔊" : "🔇";
+      this.el.soundBtn.setAttribute("aria-pressed", String(this.soundEnabled));
+      this.el.soundBtn.title = this.soundEnabled ? "Couper le son" : "Activer le son";
+    }
+
     centerOnToday(smooth) {
       const todayX = diffDays(this.rangeStart, this.today) * DAY_WIDTH;
       const target = todayX - this.el.viewport.clientWidth / 2 + DAY_WIDTH / 2;
@@ -157,7 +232,26 @@
 
     startClock() {
       this.renderNowLine();
-      setInterval(() => this.renderNowLine(), 60000);
+      this.checkAnnouncements();
+      setInterval(() => { this.renderNowLine(); this.checkAnnouncements(); }, 30000);
+    }
+
+    checkAnnouncements() {
+      if (!this.soundEnabled) return;
+      const now = new Date();
+      const todayKey = dateKey(now);
+      const nowMinutes = now.getHours() * 60 + now.getMinutes();
+      this.events.forEach((ev) => {
+        if (ev.date !== todayKey) return;
+        const key = `${ev.date}_${ev.id}`;
+        if (this.announced.has(key)) return;
+        const startMinutes = timeToHours(ev.start) * 60;
+        if (nowMinutes >= startMinutes && nowMinutes - startMinutes < ANNOUNCE_WINDOW_MIN) {
+          this.announced.add(key);
+          Sound.chime();
+          speak(`C'est l'heure : ${ev.title}.`);
+        }
+      });
     }
 
     xForDateTime(dateObj, hours) {
@@ -226,6 +320,7 @@
                       style="left:${startX}px;top:${lane * LANE_H}px;${styleWidth}"
                       data-id="${ev.id}" tabindex="0" role="button" title="${escapeHtml(ev.title)}">
           <span class="mt-event-time">${ev.start}</span><span class="mt-event-title">${escapeHtml(ev.title)}</span>
+          <button type="button" class="mt-event-speak" aria-label="Écouter cet événement">🔊</button>
         </div>`;
       });
       html += `</div><div class="mt-now-line" style="display:none"></div>`;
@@ -237,9 +332,19 @@
           const ev = this.events.find((e) => e.id === node.dataset.id);
           if (ev) this.openModal(ev);
         };
-        node.addEventListener("click", openIt);
+        node.addEventListener("click", (e) => {
+          if (e.target.closest(".mt-event-speak")) return;
+          openIt();
+        });
         node.addEventListener("keydown", (e) => {
+          if (e.target.closest(".mt-event-speak")) return;
           if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openIt(); }
+        });
+        const speakBtn = node.querySelector(".mt-event-speak");
+        speakBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const ev = this.events.find((e2) => e2.id === node.dataset.id);
+          if (ev) speakEvent(ev);
         });
       });
 
@@ -256,6 +361,7 @@
     }
 
     openModal(existingEvent, defaultDate) {
+      if (this.soundEnabled) Sound.open();
       this.editingId = existingEvent ? existingEvent.id : null;
       const ev = existingEvent || {
         title: "", category: "objectif",
@@ -321,6 +427,7 @@
       const deleteBtn = overlay.querySelector('[data-action="delete"]');
       if (deleteBtn) {
         deleteBtn.addEventListener("click", () => {
+          if (this.soundEnabled) Sound.delete();
           this.events = this.events.filter((e) => e.id !== this.editingId);
           this.saveEvents();
           this.render();
@@ -348,6 +455,7 @@
         } else {
           this.events.push({ id: uid(), ...payload });
         }
+        if (this.soundEnabled) Sound.save();
         this.saveEvents();
         this.render();
         close();

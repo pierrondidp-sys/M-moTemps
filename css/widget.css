@@ -168,6 +168,7 @@
 .mt-arrow:focus-visible,
 .mt-today-btn:focus-visible,
 .mt-add-btn:focus-visible,
+.mt-sound-btn:focus-visible,
 .mt-event:focus-visible{
   outline:2px solid var(--mt-blue);
   outline-offset:2px;
@@ -270,11 +271,11 @@
   position:absolute;
   display:flex;
   align-items:center;
-  gap:6px;
-  height:26px;
-  border-radius:8px;
-  padding:0 9px;
-  font-size:12px;
+  gap:8px;
+  height:36px;
+  border-radius:11px;
+  padding:0 8px 0 13px;
+  font-size:13.5px;
   font-weight:600;
   color:#fff;
   cursor:pointer;
@@ -288,14 +289,15 @@
 .mt-event.is-done{opacity:.45;text-decoration:line-through;}
 
 .mt-event.is-point{
-  padding:0 8px 0 6px;
+  padding:0 8px 0 10px;
   border-radius:999px;
 }
 .mt-event .mt-event-time{
   flex:0 0 auto;
   font-weight:700;
   opacity:.9;
-  font-size:10.5px;
+  font-size:12px;
+  font-variant-numeric:tabular-nums;
 }
 .mt-event .mt-event-title{
   flex:1 1 auto;
@@ -304,6 +306,25 @@
   text-overflow:ellipsis;
   white-space:nowrap;
 }
+.mt-event-speak{
+  flex:0 0 auto;
+  width:24px;
+  height:24px;
+  border-radius:50%;
+  border:none;
+  background:rgba(255,255,255,.22);
+  color:#fff;
+  font-size:12px;
+  line-height:1;
+  padding:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  transition:background .12s ease;
+}
+.mt-event-speak:hover{background:rgba(255,255,255,.38);}
+.mt-event-speak:focus-visible{outline:2px solid #fff;outline-offset:1px;}
 
 /* ---------- Add button ---------- */
 .mt-header-actions{
@@ -330,6 +351,24 @@
 }
 .mt-add-btn:hover{filter:brightness(.92);transform:translateY(-1px);}
 .mt-add-btn:active{transform:translateY(0) scale(.95);}
+
+.mt-sound-btn{
+  flex:0 0 auto;
+  width:38px;
+  height:38px;
+  border-radius:50%;
+  border:1px solid var(--mt-border-soft);
+  background:var(--mt-surface);
+  color:var(--mt-gray);
+  font-size:16px;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  transition:.15s ease;
+}
+.mt-sound-btn:hover{border-color:var(--mt-blue);color:var(--mt-blue);}
+.mt-sound-btn[aria-pressed="false"]{opacity:.55;}
 
 /* ---------- Modal ---------- */
 .mt-modal-overlay{
