@@ -2,6 +2,7 @@
   "use strict";
 
   const FLIP_DURATION_MS = 620;
+  const pendingTimeouts = new WeakMap();
 
   function pad2(n) { return String(n).padStart(2, "0"); }
 
@@ -16,26 +17,59 @@
       </div>`;
   }
 
-  function updatePanel(panelEl, newValue) {
-    const staticTop = panelEl.querySelector(".mt-flip-static-top span");
-    const staticBottom = panelEl.querySelector(".mt-flip-static-bottom span");
-    const leafTop = panelEl.querySelector(".mt-flip-leaf-top span");
-    const leafBottom = panelEl.querySelector(".mt-flip-leaf-bottom span");
-    const oldValue = staticTop.textContent;
-    if (oldValue === newValue) return;
+  function panelSpans(panelEl) {
+    return {
+      staticTop: panelEl.querySelector(".mt-flip-static-top span"),
+      staticBottom: panelEl.querySelector(".mt-flip-static-bottom span"),
+      leafTop: panelEl.querySelector(".mt-flip-leaf-top span"),
+      leafBottom: panelEl.querySelector(".mt-flip-leaf-bottom span")
+    };
+  }
 
+  function clearPending(panelEl) {
+    const pending = pendingTimeouts.get(panelEl);
+    if (pending) { clearTimeout(pending); pendingTimeouts.delete(panelEl); }
+  }
+
+  // Snaps a panel straight to a value with no animation - used for the
+  // initial render and as a safe fallback so a value is never left stuck
+  // mid-flip (e.g. after the tab was backgrounded and missed ticks).
+  function setInstant(panelEl, value) {
+    clearPending(panelEl);
+    const { staticTop, staticBottom, leafTop, leafBottom } = panelSpans(panelEl);
+    staticTop.textContent = value;
+    staticBottom.textContent = value;
+    leafTop.textContent = value;
+    leafBottom.textContent = value;
+    panelEl.classList.remove("is-flipping");
+  }
+
+  function updatePanel(panelEl, newValue) {
+    const { staticTop, staticBottom, leafTop, leafBottom } = panelSpans(panelEl);
+    if (staticTop.textContent === newValue) return;
+
+    // A previous flip is still mid-animation (most likely because the tab
+    // was backgrounded and several ticks queued up) - don't layer a new
+    // animation on top of it, just land on the correct value directly.
+    if (panelEl.classList.contains("is-flipping") || document.hidden) {
+      setInstant(panelEl, newValue);
+      return;
+    }
+
+    const oldValue = staticTop.textContent;
     leafTop.textContent = oldValue;
     leafBottom.textContent = newValue;
     staticTop.textContent = newValue;
 
-    panelEl.classList.remove("is-flipping");
-    void panelEl.offsetWidth;
     panelEl.classList.add("is-flipping");
 
-    setTimeout(() => {
+    clearPending(panelEl);
+    const timeoutId = setTimeout(() => {
       staticBottom.textContent = newValue;
       panelEl.classList.remove("is-flipping");
+      pendingTimeouts.delete(panelEl);
     }, FLIP_DURATION_MS);
+    pendingTimeouts.set(panelEl, timeoutId);
   }
 
   function mount(headerEl) {
@@ -61,6 +95,20 @@
       updatePanel(hourPanel, pad2(d.getHours()));
       updatePanel(minutePanel, pad2(d.getMinutes()));
     }
+
+    function resyncInstantly() {
+      const d = new Date();
+      setInstant(hourPanel, pad2(d.getHours()));
+      setInstant(minutePanel, pad2(d.getMinutes()));
+    }
+
+    // Whenever the tab regains visibility, force an immediate, unanimated
+    // resync - this is the safety net against any timer throttling that
+    // happened while hidden, so the clock is always correct the instant
+    // it's looked at again.
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) resyncInstantly();
+    });
 
     function scheduleNextTick() {
       const d = new Date();
