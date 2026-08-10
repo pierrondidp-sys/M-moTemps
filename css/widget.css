@@ -113,6 +113,7 @@ body{margin:0;}
 .mt-header-title{
   display:flex;
   flex-direction:column;
+  align-items:center;
   gap:1px;
   background:linear-gradient(180deg,var(--r-plate-1),var(--r-plate-2));
   border-radius:5px;
