@@ -28,7 +28,7 @@
 
   function clearPending(panelEl) {
     const pending = pendingTimeouts.get(panelEl);
-    if (pending) { clearTimeout(pending); pendingTimeouts.delete(panelEl); }
+    if (pending) { pending.forEach(clearTimeout); pendingTimeouts.delete(panelEl); }
   }
 
   // Snaps a panel straight to a value with no animation - used for the
@@ -62,14 +62,25 @@
     staticTop.textContent = newValue;
 
     panelEl.classList.add("is-flipping");
-
     clearPending(panelEl);
-    const timeoutId = setTimeout(() => {
+
+    // static-bottom must switch to the new value at the halfway point,
+    // exactly when the bottom leaf starts unfolding over it - not only
+    // once the whole animation ends. The bottom leaf starts out edge-on
+    // (rotateX(90deg)) and only gradually becomes opaque, so if the old
+    // value were still sitting underneath it at that moment, it would
+    // show through beneath the already-updated top half: a mismatched
+    // top-of-new / bottom-of-old digit.
+    const midTimeoutId = setTimeout(() => {
       staticBottom.textContent = newValue;
+    }, FLIP_DURATION_MS / 2);
+
+    const endTimeoutId = setTimeout(() => {
       panelEl.classList.remove("is-flipping");
       pendingTimeouts.delete(panelEl);
     }, FLIP_DURATION_MS);
-    pendingTimeouts.set(panelEl, timeoutId);
+
+    pendingTimeouts.set(panelEl, [midTimeoutId, endTimeoutId]);
   }
 
   function mount(headerEl) {
