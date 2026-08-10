@@ -20,6 +20,7 @@
     dark: { icon: "🌙", label: "Thème : sombre (cliquer pour système)" }
   };
   const ANNOUNCE_WINDOW_MIN = 2;
+  const FOLLOW_RESUME_IDLE_MS = 12000;
 
   const pad2 = (n) => String(n).padStart(2, "0");
   const dateKey = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
@@ -111,6 +112,8 @@
       this.theme = THEME_CYCLE.includes(localStorage.getItem(THEME_KEY)) ? localStorage.getItem(THEME_KEY) : "system";
       this.announced = new Set();
       this.externalEvents = [];
+      this.followNow = true;
+      this.followResumeTimer = null;
 
       this.applyTheme();
       this.events = this.loadEvents();
@@ -200,6 +203,7 @@
               <div class="mt-content"></div>
             </div>
             <button type="button" class="mt-arrow mt-arrow-next" aria-label="Jour suivant">&#8250;</button>
+            <div class="mt-now-line" aria-hidden="true"></div>
           </div>
         </div>
       `;
@@ -238,14 +242,24 @@
         new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(this.today)
       );
 
-      this.el.prevBtn.addEventListener("click", () => this.el.viewport.scrollBy({ left: -DAY_WIDTH, behavior: "smooth" }));
-      this.el.nextBtn.addEventListener("click", () => this.el.viewport.scrollBy({ left: DAY_WIDTH, behavior: "smooth" }));
-      this.el.todayBtn.addEventListener("click", () => this.centerOnToday(true));
+      this.el.prevBtn.addEventListener("click", () => {
+        this.pauseFollow();
+        this.el.viewport.scrollBy({ left: -DAY_WIDTH, behavior: "smooth" });
+      });
+      this.el.nextBtn.addEventListener("click", () => {
+        this.pauseFollow();
+        this.el.viewport.scrollBy({ left: DAY_WIDTH, behavior: "smooth" });
+      });
+      this.el.todayBtn.addEventListener("click", () => {
+        clearTimeout(this.followResumeTimer);
+        this.resumeFollow();
+      });
       this.el.addBtn.addEventListener("click", () => this.openModal(null, this.today));
 
       this.el.viewport.addEventListener("wheel", (e) => {
         if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
           e.preventDefault();
+          this.pauseFollow();
           this.el.viewport.scrollLeft += e.deltaY;
         }
       }, { passive: false });
@@ -258,6 +272,7 @@
       let isDown = false, startX = 0, startScroll = 0, moved = false;
       vp.addEventListener("pointerdown", (e) => {
         if (e.target.closest(".mt-event")) return;
+        this.pauseFollow();
         isDown = true; moved = false;
         startX = e.clientX;
         startScroll = vp.scrollLeft;
@@ -300,16 +315,41 @@
       this.el.themeBtn.setAttribute("aria-label", meta.label);
     }
 
+    // Centers the viewport on the exact current minute, so the fixed
+    // "now" needle (see .mt-now-line) always points at the real time
+    // whenever the timeline is following it.
     centerOnToday(smooth) {
-      const todayX = diffDays(this.rangeStart, this.today) * DAY_WIDTH;
-      const target = todayX - this.el.viewport.clientWidth / 2 + DAY_WIDTH / 2;
+      const now = new Date();
+      const nowX = this.xForDateTime(startOfDay(now), now.getHours() + now.getMinutes() / 60);
+      const target = nowX - this.el.viewport.clientWidth / 2;
       this.el.viewport.scrollTo({ left: Math.max(0, target), behavior: smooth ? "smooth" : "auto" });
     }
 
+    prefersReducedMotion() {
+      return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    }
+
+    // Manual navigation (arrows, drag, wheel) temporarily stops the
+    // timeline from auto-scrolling to keep "now" under the fixed needle,
+    // so it doesn't fight the user mid-browse; it resumes on its own
+    // after a short idle period, or immediately via the "Aujourd'hui" button.
+    pauseFollow() {
+      this.followNow = false;
+      clearTimeout(this.followResumeTimer);
+      this.followResumeTimer = setTimeout(() => this.resumeFollow(), FOLLOW_RESUME_IDLE_MS);
+    }
+
+    resumeFollow() {
+      this.followNow = true;
+      this.centerOnToday(!this.prefersReducedMotion());
+    }
+
     startClock() {
-      this.renderNowLine();
       this.checkAnnouncements();
-      setInterval(() => { this.renderNowLine(); this.checkAnnouncements(); }, 30000);
+      setInterval(() => {
+        if (this.followNow) this.centerOnToday(!this.prefersReducedMotion());
+        this.checkAnnouncements();
+      }, 30000);
     }
 
     checkAnnouncements() {
@@ -400,7 +440,7 @@
           <button type="button" class="mt-event-speak" aria-label="Écouter cet événement">🔊</button>
         </div>`;
       });
-      html += `</div><div class="mt-now-line" style="display:none"></div>`;
+      html += `</div>`;
 
       this.el.content.innerHTML = html;
 
@@ -427,16 +467,6 @@
         });
       });
 
-      this.el.nowLine = this.el.content.querySelector(".mt-now-line");
-      this.renderNowLine();
-    }
-
-    renderNowLine() {
-      if (!this.el.nowLine) return;
-      const now = new Date();
-      const x = this.xForDateTime(startOfDay(now), now.getHours() + now.getMinutes() / 60);
-      this.el.nowLine.style.left = x + "px";
-      this.el.nowLine.style.display = "";
     }
 
     openModal(existingEvent, defaultDate, opts = {}) {

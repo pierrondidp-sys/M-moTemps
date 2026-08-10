@@ -417,14 +417,20 @@ body{margin:0;}
   user-select:none;
 }
 
+/* Fixed "tuner needle" - lives outside .mt-viewport (a sibling in
+   .mt-timeline) so it never scrolls with the content; the hour ribbon
+   scrolls underneath it instead, centered on the current time. */
 .mt-now-line{
   position:absolute;
-  top:34px;
-  bottom:0;
+  left:50%;
+  transform:translateX(-50%);
+  top:50px;
+  bottom:22px;
   width:2px;
   background:var(--r-blue);
   box-shadow:0 0 12px 2px var(--r-blue-glow), 0 0 3px #fff;
   z-index:5;
+  pointer-events:none;
 }
 .mt-now-line::before{
   content:"";
