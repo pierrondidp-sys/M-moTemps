@@ -120,6 +120,7 @@
       this.buildDom();
       this.render();
       this.centerOnToday(false);
+      this.updateTodayBtnLabel();
       this.startClock();
     }
 
@@ -250,10 +251,7 @@
         this.pauseFollow();
         this.el.viewport.scrollBy({ left: DAY_WIDTH, behavior: "smooth" });
       });
-      this.el.todayBtn.addEventListener("click", () => {
-        clearTimeout(this.followResumeTimer);
-        this.resumeFollow();
-      });
+      this.el.todayBtn.addEventListener("click", () => this.openDatePicker());
       this.el.addBtn.addEventListener("click", () => this.openModal(null, this.today));
 
       this.el.viewport.addEventListener("wheel", (e) => {
@@ -263,6 +261,8 @@
           this.el.viewport.scrollLeft += e.deltaY;
         }
       }, { passive: false });
+
+      this.el.viewport.addEventListener("scroll", () => this.updateTodayBtnLabel(), { passive: true });
 
       this.attachDrag();
     }
@@ -342,6 +342,140 @@
     resumeFollow() {
       this.followNow = true;
       this.centerOnToday(!this.prefersReducedMotion());
+    }
+
+    // Scrolls to center a specific date under the fixed "now" needle.
+    // Picking today itself resumes live-following rather than a one-off
+    // scroll, since that's the more useful behavior when jumping back.
+    goToDate(dateObj) {
+      const target = startOfDay(dateObj);
+      if (diffDays(this.today, target) === 0) {
+        clearTimeout(this.followResumeTimer);
+        this.resumeFollow();
+        return;
+      }
+      this.pauseFollow();
+      const clientW = this.el.viewport.clientWidth;
+      const dayX = diffDays(this.rangeStart, target) * DAY_WIDTH;
+      const scrollTarget = dayX + DAY_WIDTH / 2 - clientW / 2;
+      const maxScroll = Math.max(0, this.contentWidth - clientW);
+      this.el.viewport.scrollTo({
+        left: Math.min(Math.max(0, scrollTarget), maxScroll),
+        behavior: this.prefersReducedMotion() ? "auto" : "smooth"
+      });
+    }
+
+    centeredDate() {
+      const clientW = this.el.viewport.clientWidth;
+      const centerX = this.el.viewport.scrollLeft + clientW / 2;
+      const dayIndex = Math.min(Math.max(Math.floor(centerX / DAY_WIDTH), 0), this.totalDays - 1);
+      return addDays(this.rangeStart, dayIndex);
+    }
+
+    updateTodayBtnLabel() {
+      const viewed = this.centeredDate();
+      const diff = diffDays(this.today, viewed);
+      if (diff === 0) this.el.todayBtn.textContent = "Aujourd'hui";
+      else if (diff === -1) this.el.todayBtn.textContent = "Hier";
+      else if (diff === 1) this.el.todayBtn.textContent = "Demain";
+      else {
+        this.el.todayBtn.textContent = capitalize(
+          new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short" }).format(viewed).replace(".", "")
+        );
+      }
+    }
+
+    openDatePicker() {
+      if (this.soundEnabled) Sound.open();
+      const viewed = this.centeredDate();
+      let displayYear = viewed.getFullYear();
+      let displayMonth = viewed.getMonth();
+
+      const overlay = document.createElement("div");
+      overlay.className = "mt-modal-overlay";
+      overlay.innerHTML = `
+        <div class="mt-modal" role="dialog" aria-modal="true" aria-labelledby="mt-dp-title">
+          <h2 id="mt-dp-title">Aller à une date</h2>
+          <div class="mt-dp-quick">
+            <button type="button" class="mt-btn mt-btn-ghost" data-quick="-1">Hier</button>
+            <button type="button" class="mt-btn mt-btn-ghost" data-quick="0">Aujourd'hui</button>
+            <button type="button" class="mt-btn mt-btn-ghost" data-quick="1">Demain</button>
+          </div>
+          <div class="mt-dp-cal">
+            <div class="mt-dp-cal-head">
+              <button type="button" class="mt-dp-nav" data-nav="-1" aria-label="Mois précédent">&#8249;</button>
+              <span class="mt-dp-month"></span>
+              <button type="button" class="mt-dp-nav" data-nav="1" aria-label="Mois suivant">&#8250;</button>
+            </div>
+            <div class="mt-dp-weekdays"><span>Lu</span><span>Ma</span><span>Me</span><span>Je</span><span>Ve</span><span>Sa</span><span>Di</span></div>
+            <div class="mt-dp-grid"></div>
+          </div>
+          <div class="mt-modal-actions">
+            <div class="mt-modal-actions-left"></div>
+            <div class="mt-modal-actions-left">
+              <button type="button" class="mt-btn mt-btn-ghost" data-action="close">Fermer</button>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+
+      const close = () => { document.removeEventListener("keydown", onKeydown); overlay.remove(); };
+      const onKeydown = (e) => { if (e.key === "Escape") close(); };
+      document.addEventListener("keydown", onKeydown);
+      overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+      overlay.querySelector('[data-action="close"]').addEventListener("click", close);
+
+      const goAndClose = (d) => {
+        this.goToDate(d);
+        if (this.soundEnabled) Sound.save();
+        close();
+      };
+
+      overlay.querySelectorAll("[data-quick]").forEach((btn) => {
+        btn.addEventListener("click", () => goAndClose(addDays(this.today, Number(btn.dataset.quick))));
+      });
+
+      const monthLabel = overlay.querySelector(".mt-dp-month");
+      const gridEl = overlay.querySelector(".mt-dp-grid");
+      const rangeStartKey = dateKey(this.rangeStart);
+      const rangeEndKey = dateKey(this.rangeEnd);
+
+      const renderCalendar = () => {
+        const first = new Date(displayYear, displayMonth, 1);
+        monthLabel.textContent = capitalize(new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" }).format(first));
+        const leading = (first.getDay() + 6) % 7; // Monday-first offset
+        const gridStart = addDays(first, -leading);
+
+        let html = "";
+        for (let i = 0; i < 42; i++) {
+          const d = addDays(gridStart, i);
+          if (d.getMonth() !== displayMonth) { html += `<span class="mt-dp-day is-outside"></span>`; continue; }
+          const key = dateKey(d);
+          const inRange = key >= rangeStartKey && key <= rangeEndKey;
+          const classes = ["mt-dp-day"];
+          if (diffDays(this.today, d) === 0) classes.push("is-today");
+          if (diffDays(viewed, d) === 0) classes.push("is-viewed");
+          if (!inRange) classes.push("is-disabled");
+          html += `<button type="button" class="${classes.join(" ")}" ${inRange ? "" : "disabled"} data-date="${key}">${d.getDate()}</button>`;
+        }
+        gridEl.innerHTML = html;
+
+        gridEl.querySelectorAll(".mt-dp-day[data-date]").forEach((btn) => {
+          btn.addEventListener("click", () => goAndClose(this.parseDate(btn.dataset.date)));
+        });
+      };
+
+      overlay.querySelectorAll("[data-nav]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          displayMonth += Number(btn.dataset.nav);
+          if (displayMonth < 0) { displayMonth = 11; displayYear--; }
+          if (displayMonth > 11) { displayMonth = 0; displayYear++; }
+          renderCalendar();
+        });
+      });
+
+      renderCalendar();
     }
 
     startClock() {

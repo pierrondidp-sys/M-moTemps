@@ -340,6 +340,8 @@ body{margin:0;}
 .mt-today-btn:focus-visible,
 .mt-icon-btn:focus-visible,
 .mt-add-btn:focus-visible,
+.mt-dp-nav:focus-visible,
+.mt-dp-day:focus-visible,
 .mt-event:focus-visible{
   outline:2px solid var(--r-blue);
   outline-offset:2px;
@@ -674,6 +676,82 @@ body{margin:0;}
 .mt-btn-danger:hover{box-shadow:0 0 10px rgba(201,58,48,.4);}
 
 .mt-modal-actions-left{display:flex;gap:8px;}
+
+/* ---------- Date picker ---------- */
+.mt-dp-quick{display:flex;gap:8px;margin-bottom:18px;}
+.mt-dp-quick .mt-btn{flex:1;}
+
+.mt-dp-cal-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom:10px;
+}
+.mt-dp-month{
+  flex:1;
+  text-align:center;
+  font-size:12.5px;
+  font-weight:700;
+  letter-spacing:.5px;
+  text-transform:capitalize;
+  color:var(--r-ink);
+}
+.mt-dp-nav{
+  flex:0 0 auto;
+  width:26px;
+  height:26px;
+  border-radius:50%;
+  border:1px solid var(--r-chassis-border);
+  background:var(--r-recess-bg);
+  color:var(--r-ink-dim);
+  font-size:14px;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  transition:.15s ease;
+}
+.mt-dp-nav:hover{border-color:var(--r-blue);color:var(--r-blue);}
+
+.mt-dp-weekdays{
+  display:grid;
+  grid-template-columns:repeat(7,1fr);
+  text-align:center;
+  font-size:9.5px;
+  font-weight:700;
+  letter-spacing:1px;
+  text-transform:uppercase;
+  color:var(--r-ink-dim);
+  margin-bottom:6px;
+}
+
+.mt-dp-grid{
+  display:grid;
+  grid-template-columns:repeat(7,1fr);
+  gap:4px;
+  margin-bottom:18px;
+}
+
+.mt-dp-day{
+  width:100%;
+  aspect-ratio:1;
+  border:1px solid transparent;
+  border-radius:50%;
+  background:transparent;
+  color:var(--r-ink);
+  font-size:12.5px;
+  font-variant-numeric:tabular-nums;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  transition:.12s ease;
+}
+.mt-dp-day.is-outside{visibility:hidden;cursor:default;}
+.mt-dp-day:not(.is-outside):not(.is-disabled):hover{border-color:var(--r-blue);color:var(--r-blue);}
+.mt-dp-day.is-today{border-color:var(--r-blue);color:var(--r-blue);font-weight:700;}
+.mt-dp-day.is-viewed{background:var(--r-blue);color:#fff;border-color:var(--r-blue);font-weight:700;}
+.mt-dp-day.is-disabled{opacity:.3;cursor:not-allowed;}
 
 @media (prefers-reduced-motion: reduce){
   .mt-event,.mt-arrow,.mt-add-btn,.mt-icon-btn,.mt-btn,.mt-today-btn,.mt-viewport,.mt-page,.mt-widget,.mt-content{transition:none;}
