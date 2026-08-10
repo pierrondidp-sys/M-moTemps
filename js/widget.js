@@ -92,9 +92,9 @@
   }
 
   const SAMPLE_EVENTS = (todayKey, tomorrowKey) => [
-    { id: uid(), title: "Point équipe", date: todayKey, start: "09:00", end: "09:30", category: "rdv", notes: "", done: false },
-    { id: uid(), title: "Finir la maquette", date: todayKey, start: "14:00", end: "16:00", category: "objectif", notes: "", done: false },
-    { id: uid(), title: "Appeler le client", date: tomorrowKey, start: "11:00", end: "", category: "rdv", notes: "", done: false }
+    { id: "sample_1", title: "Point équipe", date: todayKey, start: "09:00", end: "09:30", category: "rdv", notes: "", done: false },
+    { id: "sample_2", title: "Finir la maquette", date: todayKey, start: "14:00", end: "16:00", category: "objectif", notes: "", done: false },
+    { id: "sample_3", title: "Appeler le client", date: tomorrowKey, start: "11:00", end: "", category: "rdv", notes: "", done: false }
   ];
 
   class MemoTempsWidget {
@@ -132,6 +132,42 @@
 
     saveEvents() {
       localStorage.setItem(this.storageKey, JSON.stringify(this.events));
+    }
+
+    exportEvents() {
+      return {
+        app: "MemoTemps",
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        events: this.events
+      };
+    }
+
+    // Merges incoming events by id (upsert) - never deletes anything of the
+    // user's own, so importing on a device that already has local events
+    // is always safe. The only exception is the untouched starter demo
+    // events (id "sample_*") seeded on a fresh install: those are cleared
+    // out once real data is imported, so they don't linger as clutter.
+    importEvents(payload) {
+      const list = Array.isArray(payload) ? payload : (payload && Array.isArray(payload.events) ? payload.events : null);
+      if (!list) throw new Error("format-invalide");
+
+      const byId = new Map(this.events.map((e) => [e.id, e]));
+      let added = 0, updated = 0, skipped = 0;
+      list.forEach((ev) => {
+        if (!ev || typeof ev !== "object" || !ev.id || !ev.title || !ev.date || !ev.start) { skipped++; return; }
+        if (byId.has(ev.id)) updated++; else added++;
+        byId.set(ev.id, ev);
+      });
+
+      Array.from(byId.keys()).forEach((id) => {
+        if (id.startsWith("sample_") && !list.some((ev) => ev && ev.id === id)) byId.delete(id);
+      });
+
+      this.events = Array.from(byId.values());
+      this.saveEvents();
+      this.render();
+      return { added, updated, skipped, total: this.events.length };
     }
 
     setExternalEvents(list) {

@@ -1,4 +1,4 @@
-const CACHE_NAME = "mt-cache-v8";
+const CACHE_NAME = "mt-cache-v9";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -6,6 +6,7 @@ const APP_SHELL = [
   "./js/widget.js",
   "./js/outlook.js",
   "./js/flipclock.js",
+  "./js/backup.js",
   "./manifest.json",
   "./icons/icon-192.png",
   "./icons/icon-512.png"

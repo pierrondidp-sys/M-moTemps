@@ -21,10 +21,12 @@
   <script src="js/widget.js"></script>
   <script src="js/outlook.js"></script>
   <script src="js/flipclock.js"></script>
+  <script src="js/backup.js"></script>
   <script>
     window.mtWidget = new MemoTempsWidget(document.getElementById('mt-widget-root'));
     MemoTempsOutlook.attach(window.mtWidget);
     MemoTempsFlipClock.mount(document.querySelector('.mt-header'));
+    MemoTempsBackup.attach(window.mtWidget);
 
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
