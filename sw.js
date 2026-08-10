@@ -1,9 +1,10 @@
-const CACHE_NAME = "mt-cache-v4";
+const CACHE_NAME = "mt-cache-v5";
 const APP_SHELL = [
   "./",
   "./index.html",
   "./css/widget.css",
   "./js/widget.js",
+  "./js/outlook.js",
   "./manifest.json",
   "./icons/icon-192.png",
   "./icons/icon-512.png"

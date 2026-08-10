@@ -19,8 +19,10 @@
   </main>
 
   <script src="js/widget.js"></script>
+  <script src="js/outlook.js"></script>
   <script>
-    new MemoTempsWidget(document.getElementById('mt-widget-root'));
+    window.mtWidget = new MemoTempsWidget(document.getElementById('mt-widget-root'));
+    MemoTempsOutlook.attach(window.mtWidget);
 
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {

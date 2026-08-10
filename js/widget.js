@@ -110,6 +110,7 @@
       this.soundEnabled = localStorage.getItem(SOUND_KEY) !== "0";
       this.theme = THEME_CYCLE.includes(localStorage.getItem(THEME_KEY)) ? localStorage.getItem(THEME_KEY) : "system";
       this.announced = new Set();
+      this.externalEvents = [];
 
       this.applyTheme();
       this.events = this.loadEvents();
@@ -131,6 +132,11 @@
 
     saveEvents() {
       localStorage.setItem(this.storageKey, JSON.stringify(this.events));
+    }
+
+    setExternalEvents(list) {
+      this.externalEvents = list;
+      this.render();
     }
 
     buildDom() {
@@ -319,7 +325,7 @@
     }
 
     render() {
-      const { items, laneCount } = this.layoutLanes(this.events);
+      const { items, laneCount } = this.layoutLanes(this.events.concat(this.externalEvents));
       const contentHeight = EVENTS_TOP + laneCount * LANE_H + 14;
 
       this.el.content.style.width = this.contentWidth + "px";
@@ -350,9 +356,10 @@
       items.forEach(({ ev, startX, lane, hasEnd }) => {
         const width = hasEnd ? Math.max((timeToHours(ev.end) - timeToHours(ev.start)) * HOUR_WIDTH, MIN_BAR_WIDTH) : null;
         const styleWidth = hasEnd ? `width:${width}px;` : "";
-        html += `<div class="mt-event cat-${ev.category}${hasEnd ? "" : " is-point"}${ev.done ? " is-done" : ""}"
+        const isExternal = ev.source === "outlook";
+        html += `<div class="mt-event cat-${ev.category}${hasEnd ? "" : " is-point"}${ev.done ? " is-done" : ""}${isExternal ? " is-external" : ""}"
                       style="left:${startX}px;top:${lane * LANE_H}px;${styleWidth}"
-                      data-id="${ev.id}" tabindex="0" role="button" title="${escapeHtml(ev.title)}">
+                      data-id="${ev.id}" tabindex="0" role="button" title="${escapeHtml(ev.title)}${isExternal ? " (Outlook)" : ""}">
           <span class="mt-event-time">${ev.start}</span><span class="mt-event-title">${escapeHtml(ev.title)}</span>
           <button type="button" class="mt-event-speak" aria-label="Écouter cet événement">🔊</button>
         </div>`;
@@ -361,10 +368,12 @@
 
       this.el.content.innerHTML = html;
 
+      const findEvent = (id) => this.events.find((e) => e.id === id) || this.externalEvents.find((e) => e.id === id);
+
       this.el.content.querySelectorAll(".mt-event").forEach((node) => {
         const openIt = () => {
-          const ev = this.events.find((e) => e.id === node.dataset.id);
-          if (ev) this.openModal(ev);
+          const ev = findEvent(node.dataset.id);
+          if (ev) this.openModal(ev, null, { readOnly: ev.source === "outlook" });
         };
         node.addEventListener("click", (e) => {
           if (e.target.closest(".mt-event-speak")) return;
@@ -377,7 +386,7 @@
         const speakBtn = node.querySelector(".mt-event-speak");
         speakBtn.addEventListener("click", (e) => {
           e.stopPropagation();
-          const ev = this.events.find((e2) => e2.id === node.dataset.id);
+          const ev = findEvent(node.dataset.id);
           if (ev) speakEvent(ev);
         });
       });
@@ -394,7 +403,7 @@
       this.el.nowLine.style.display = "";
     }
 
-    openModal(existingEvent, defaultDate) {
+    openModal(existingEvent, defaultDate, opts = {}) {
       if (this.soundEnabled) Sound.open();
       this.editingId = existingEvent ? existingEvent.id : null;
       const ev = existingEvent || {
@@ -402,6 +411,11 @@
         date: dateKey(defaultDate || this.today),
         start: "09:00", end: "", notes: "", done: false
       };
+
+      if (opts.readOnly) {
+        this.openReadOnlyModal(ev);
+        return;
+      }
 
       const overlay = document.createElement("div");
       overlay.className = "mt-modal-overlay";
@@ -496,6 +510,36 @@
       });
 
       overlay.querySelector('input[name="title"]').focus();
+    }
+
+    openReadOnlyModal(ev) {
+      const overlay = document.createElement("div");
+      overlay.className = "mt-modal-overlay";
+      const catLabel = ev.category === "objectif" ? "Objectif" : "Rendez-vous";
+      const timeLabel = ev.end ? `${ev.start} – ${ev.end}` : ev.start;
+      overlay.innerHTML = `
+        <div class="mt-modal" role="dialog" aria-modal="true" aria-labelledby="mt-modal-title">
+          <h2 id="mt-modal-title">${escapeHtml(ev.title)}</h2>
+          <div class="mt-field"><label>Type</label><div>${catLabel}</div></div>
+          <div class="mt-field"><label>Date</label><div>${ev.date}</div></div>
+          <div class="mt-field"><label>Heure</label><div>${timeLabel}</div></div>
+          ${ev.notes ? `<div class="mt-field"><label>Notes</label><div>${escapeHtml(ev.notes)}</div></div>` : ""}
+          <p class="mt-readonly-note">Importé depuis Outlook — lecture seule, modifiable dans Outlook.</p>
+          <div class="mt-modal-actions">
+            <div class="mt-modal-actions-left"></div>
+            <div class="mt-modal-actions-left">
+              <button type="button" class="mt-btn mt-btn-primary" data-action="close">Fermer</button>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+      const close = () => { document.removeEventListener("keydown", onKeydown); overlay.remove(); };
+      const onKeydown = (e) => { if (e.key === "Escape") close(); };
+      document.addEventListener("keydown", onKeydown);
+      overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+      overlay.querySelector('[data-action="close"]').addEventListener("click", close);
+      overlay.querySelector('[data-action="close"]').focus();
     }
   }
 
