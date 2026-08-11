@@ -20,6 +20,7 @@
     dark: { icon: "🌙", label: "Thème : sombre (cliquer pour système)" }
   };
   const ANNOUNCE_WINDOW_MIN = 2;
+  const PRE_ANNOUNCE_MIN = 5;
   const FOLLOW_RESUME_IDLE_MS = 12000;
 
   const pad2 = (n) => String(n).padStart(2, "0");
@@ -493,13 +494,20 @@
       const nowMinutes = now.getHours() * 60 + now.getMinutes();
       this.events.forEach((ev) => {
         if (ev.date !== todayKey) return;
-        const key = `${ev.date}_${ev.id}`;
-        if (this.announced.has(key)) return;
         const startMinutes = timeToHours(ev.start) * 60;
-        if (nowMinutes >= startMinutes && nowMinutes - startMinutes < ANNOUNCE_WINDOW_MIN) {
-          this.announced.add(key);
+
+        const startKey = `${ev.date}_${ev.id}`;
+        if (!this.announced.has(startKey) && nowMinutes >= startMinutes && nowMinutes - startMinutes < ANNOUNCE_WINDOW_MIN) {
+          this.announced.add(startKey);
           Sound.chime();
           speak(`C'est l'heure : ${ev.title}.`);
+        }
+
+        const preKey = `${startKey}_pre${PRE_ANNOUNCE_MIN}`;
+        const minutesUntil = startMinutes - nowMinutes;
+        if (!this.announced.has(preKey) && minutesUntil <= PRE_ANNOUNCE_MIN && minutesUntil > PRE_ANNOUNCE_MIN - ANNOUNCE_WINDOW_MIN) {
+          this.announced.add(preKey);
+          if (window.MemoTempsReminder) window.MemoTempsReminder.show(ev, PRE_ANNOUNCE_MIN);
         }
       });
     }
