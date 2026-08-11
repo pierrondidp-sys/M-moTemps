@@ -505,9 +505,16 @@
 
         const preKey = `${startKey}_pre${PRE_ANNOUNCE_MIN}`;
         const minutesUntil = startMinutes - nowMinutes;
-        if (!this.announced.has(preKey) && minutesUntil <= PRE_ANNOUNCE_MIN && minutesUntil > PRE_ANNOUNCE_MIN - ANNOUNCE_WINDOW_MIN) {
+        if (!this.announced.has(preKey) && minutesUntil > 0 && minutesUntil <= PRE_ANNOUNCE_MIN) {
           this.announced.add(preKey);
-          if (window.MemoTempsReminder) window.MemoTempsReminder.show(ev, PRE_ANNOUNCE_MIN);
+          if (window.MemoTempsReminder) window.MemoTempsReminder.show(ev);
+        }
+
+        // Once the event's own start time actually arrives, clear the
+        // reminder if it's still showing - whether or not the user
+        // already dismissed it by clicking.
+        if (minutesUntil <= 0 && window.MemoTempsReminder) {
+          window.MemoTempsReminder.hideIfShowing(ev.id);
         }
       });
     }

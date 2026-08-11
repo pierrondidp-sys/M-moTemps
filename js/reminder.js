@@ -1,7 +1,9 @@
 (function () {
   "use strict";
 
-  const DISPLAY_MS = 5200;
+  let plateEl = null;
+  let normalHTML = null;
+  let currentEventId = null;
 
   function frenchTime(t) {
     const [h, m] = t.split(":").map(Number);
@@ -12,67 +14,72 @@
     return String(str).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   }
 
-  // An original grumpy little character in the spirit of a single
-  // continuous white-line silhouette (round belly, pointy nose, thin
-  // limbs) - not a reproduction of any copyrighted character design.
-  function characterSVG() {
+  function bulbSVG() {
     return `
-      <svg class="mt-linea-svg" viewBox="0 0 120 140" aria-hidden="true">
-        <g class="mt-linea-leg mt-linea-leg-back">
-          <path d="M58 92 L52 128" />
+      <svg class="mt-bulb-svg" viewBox="0 0 64 64" aria-hidden="true">
+        <g class="mt-bulb-rays">
+          <line x1="32" y1="2" x2="32" y2="9" />
+          <line x1="9" y1="9" x2="15" y2="15" />
+          <line x1="55" y1="9" x2="49" y2="15" />
+          <line x1="3" y1="29" x2="11" y2="29" />
+          <line x1="61" y1="29" x2="53" y2="29" />
         </g>
-        <g class="mt-linea-leg mt-linea-leg-front">
-          <path d="M66 92 L74 128" />
-        </g>
-        <g class="mt-linea-arm mt-linea-arm-back">
-          <path d="M52 62 C44 66, 38 74, 36 84" />
-        </g>
-        <path class="mt-linea-body" d="M45 60
-                 C40 78, 42 96, 62 96
-                 C82 96, 84 78, 79 60
-                 C76 48, 68 42, 62 42
-                 C56 42, 48 48, 45 60 Z" />
-        <g class="mt-linea-head">
-          <circle class="mt-linea-skull" cx="62" cy="26" r="16" />
-          <path class="mt-linea-nose" d="M78 25 L97 20" />
-          <path class="mt-linea-brow" d="M52 17 L61 21 M71 17 L62 21" />
-          <circle class="mt-linea-eye" cx="58" cy="25" r="1.7" />
-        </g>
-        <g class="mt-linea-arm mt-linea-arm-front">
-          <path d="M70 62 C80 64, 88 58, 92 46" />
-        </g>
+        <path class="mt-bulb-glass" d="M32 8
+          C20 8, 13 17, 13 27
+          C13 35, 17 40, 21 44
+          C23 46, 24 48, 24 51
+          L40 51
+          C40 48, 41 46, 43 44
+          C47 40, 51 35, 51 27
+          C51 17, 44 8, 32 8 Z" />
+        <path class="mt-bulb-filament" d="M25 27 L30 35 L26 35 L31 43 M31 27 L34 33" />
+        <rect class="mt-bulb-base" x="24" y="51" width="16" height="4" rx="1.5" />
+        <rect class="mt-bulb-base" x="25" y="56" width="14" height="4" rx="1.5" />
+        <rect class="mt-bulb-cap" x="26.5" y="61" width="11" height="3" rx="1.5" />
       </svg>`;
   }
 
-  function show(ev, minutesBefore) {
-    const existing = document.querySelector(".mt-linea-toast");
-    if (existing) existing.remove();
-
-    const toast = document.createElement("div");
-    toast.className = "mt-linea-toast";
-    toast.setAttribute("role", "status");
-    toast.innerHTML = `
-      <div class="mt-linea-bubble">
-        <strong>Dans ${minutesBefore} min !</strong>
-        <span>${escapeHtml(ev.title)} · ${frenchTime(ev.start)}</span>
-      </div>
-      <div class="mt-linea-figure">${characterSVG()}</div>
-    `;
-    document.body.appendChild(toast);
-
-    requestAnimationFrame(() => requestAnimationFrame(() => toast.classList.add("is-in")));
-
-    let dismissed = false;
-    const dismiss = () => {
-      if (dismissed) return;
-      dismissed = true;
-      toast.classList.remove("is-in");
-      toast.classList.add("is-out");
-      setTimeout(() => toast.remove(), 450);
-    };
-    toast.addEventListener("click", dismiss);
-    setTimeout(dismiss, DISPLAY_MS);
+  function ensurePlate() {
+    if (plateEl) return;
+    plateEl = document.querySelector(".mt-header-title");
+    if (plateEl && normalHTML === null) normalHTML = plateEl.innerHTML;
   }
 
-  window.MemoTempsReminder = { show };
+  function show(ev) {
+    ensurePlate();
+    if (!plateEl || currentEventId === ev.id) return;
+
+    currentEventId = ev.id;
+    plateEl.classList.add("is-reminder");
+    plateEl.innerHTML = `
+      <div class="mt-bulb-reminder" role="button" tabindex="0" aria-label="Rappel : ${escapeHtml(ev.title)} à ${frenchTime(ev.start)}. Cliquer pour masquer.">
+        <div class="mt-bulb-figure">${bulbSVG()}</div>
+        <div class="mt-bulb-text">
+          <strong>${escapeHtml(ev.title)}</strong>
+          <span>${frenchTime(ev.start)}</span>
+        </div>
+      </div>`;
+
+    const trigger = plateEl.querySelector(".mt-bulb-reminder");
+    trigger.addEventListener("click", hide);
+    trigger.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); hide(); }
+    });
+  }
+
+  function hide() {
+    if (!plateEl || currentEventId === null) return;
+    plateEl.classList.remove("is-reminder");
+    plateEl.innerHTML = normalHTML;
+    currentEventId = null;
+  }
+
+  // Called on every clock tick once an event's start time has actually
+  // arrived, regardless of whether the user already dismissed it by
+  // clicking - a no-op if it isn't the one currently shown (or already gone).
+  function hideIfShowing(eventId) {
+    if (currentEventId === eventId) hide();
+  }
+
+  window.MemoTempsReminder = { show, hide, hideIfShowing };
 })();
