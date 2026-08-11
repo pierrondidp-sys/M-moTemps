@@ -203,7 +203,12 @@ body{margin:0;}
   backface-visibility:hidden;
   z-index:5;
 }
-.mt-flip-leaf-top{transform-origin:bottom center;}
+/* Resting (non-animating) position of each leaf must match the angle its
+   own animation ends on - otherwise, the instant "is-flipping" is removed
+   at the end of a flip, the leaf snaps back to its unstyled default
+   (rotateX(0), i.e. flat/covering) instead of staying out of the way,
+   popping the stale old value it still holds back over the correct one. */
+.mt-flip-leaf-top{transform-origin:bottom center;transform:rotateX(-90deg);}
 .mt-flip-leaf-bottom{transform-origin:top center;transform:rotateX(90deg);}
 
 .mt-flip-seam{
