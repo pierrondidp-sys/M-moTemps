@@ -289,7 +289,8 @@ body{margin:0;}
 }
 .mt-icon-btn:hover{box-shadow:0 2px 3px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.7), 0 0 10px var(--r-blue-glow);}
 .mt-sound-btn[aria-pressed="false"]{opacity:.5;}
-.mt-outlook-btn.is-connected{box-shadow:0 2px 3px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.7), 0 0 0 2px var(--r-green);}
+.mt-outlook-btn.is-connected,
+.mt-drive-btn.is-connected{box-shadow:0 2px 3px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.7), 0 0 0 2px var(--r-green);}
 
 .mt-add-btn{
   flex:0 0 auto;

@@ -1,10 +1,11 @@
-const CACHE_NAME = "mt-cache-v16";
+const CACHE_NAME = "mt-cache-v17";
 const APP_SHELL = [
   "./",
   "./index.html",
   "./css/widget.css",
   "./js/widget.js",
   "./js/outlook.js",
+  "./js/drive.js",
   "./js/flipclock.js",
   "./js/backup.js",
   "./js/reminder.js",
