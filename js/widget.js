@@ -763,5 +763,37 @@
   }
   function escapeAttr(str) { return escapeHtml(str); }
 
+  // Every modal in the app (event form, date picker, Outlook/Drive/backup
+  // settings) is built independently but shares the same .mt-modal-overlay
+  // > .mt-modal > h2 markup, so a single observer here can add the zoom
+  // toggle to all of them instead of repeating it in each file.
+  function enhanceModal(overlay) {
+    const modal = overlay.querySelector(".mt-modal");
+    const h2 = modal && modal.querySelector("h2");
+    if (!modal || !h2 || modal.querySelector(".mt-modal-zoom-btn")) return;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "mt-modal-zoom-btn";
+    const setLabel = (expanded) => {
+      btn.textContent = expanded ? "⤡" : "⤢";
+      const label = expanded ? "Réduire la fenêtre" : "Agrandir la fenêtre";
+      btn.title = label;
+      btn.setAttribute("aria-label", label);
+    };
+    setLabel(false);
+    btn.addEventListener("click", () => setLabel(modal.classList.toggle("is-expanded")));
+    h2.insertAdjacentElement("afterend", btn);
+  }
+
+  if (typeof MutationObserver !== "undefined") {
+    new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        for (const node of m.addedNodes) {
+          if (node.nodeType === 1 && node.classList.contains("mt-modal-overlay")) enhanceModal(node);
+        }
+      }
+    }).observe(document.body, { childList: true });
+  }
+
   window.MemoTempsWidget = MemoTempsWidget;
 })();
