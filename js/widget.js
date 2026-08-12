@@ -128,15 +128,41 @@
     loadEvents() {
       try {
         const raw = localStorage.getItem(this.storageKey);
-        if (raw) return JSON.parse(raw);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          // Legacy format: the key used to hold a bare events array. Treat
+          // that as "no tombstones yet" rather than migrating explicitly.
+          if (Array.isArray(parsed)) { this.tombstones = {}; return parsed; }
+          this.tombstones = (parsed && parsed.tombstones) || {};
+          return (parsed && parsed.events) || [];
+        }
       } catch (e) { /* ignore corrupted storage */ }
+      this.tombstones = {};
       const sample = SAMPLE_EVENTS(dateKey(this.today), dateKey(addDays(this.today, 1)));
-      localStorage.setItem(this.storageKey, JSON.stringify(sample));
+      localStorage.setItem(this.storageKey, JSON.stringify({ events: sample, tombstones: {} }));
       return sample;
     }
 
+    // Tombstones only need to outlive the longest realistic gap between two
+    // syncs of the same device; a year is generous and keeps them from
+    // growing local storage forever.
+    pruneTombstones() {
+      const cutoff = Date.now() - 365 * 24 * 60 * 60 * 1000;
+      Object.keys(this.tombstones).forEach((id) => {
+        if (this.tombstones[id] < cutoff) delete this.tombstones[id];
+      });
+    }
+
     saveEvents() {
-      localStorage.setItem(this.storageKey, JSON.stringify(this.events));
+      this.pruneTombstones();
+      localStorage.setItem(this.storageKey, JSON.stringify({ events: this.events, tombstones: this.tombstones }));
+    }
+
+    deleteEvent(id) {
+      this.events = this.events.filter((e) => e.id !== id);
+      this.tombstones[id] = Date.now();
+      this.saveEvents();
+      this.render();
     }
 
     exportEvents() {
@@ -144,35 +170,46 @@
         app: "MemoTemps",
         version: 1,
         exportedAt: new Date().toISOString(),
-        events: this.events
+        events: this.events,
+        tombstones: this.tombstones
       };
     }
 
-    // Merges incoming events by id (upsert) - never deletes anything of the
-    // user's own, so importing on a device that already has local events
-    // is always safe. The only exception is the untouched starter demo
-    // events (id "sample_*") seeded on a fresh install: those are cleared
-    // out once real data is imported, so they don't linger as clutter.
+    // Merges incoming events by id (upsert) and incoming deletions
+    // (tombstones) by id. A tombstone always wins over an event with the
+    // same id, on either side - so deleting an event on one device makes
+    // it disappear everywhere once every device has synced, instead of
+    // being silently resurrected by the next sync pulling the old copy
+    // back in. The only exception is the untouched starter demo events
+    // (id "sample_*") seeded on a fresh install: those are cleared out
+    // once real data is imported, so they don't linger as clutter.
     importEvents(payload) {
       const list = Array.isArray(payload) ? payload : (payload && Array.isArray(payload.events) ? payload.events : null);
       if (!list) throw new Error("format-invalide");
+      const incomingTombstones = (!Array.isArray(payload) && payload && payload.tombstones) || {};
+
+      Object.keys(incomingTombstones).forEach((id) => {
+        if (!this.tombstones[id] || incomingTombstones[id] > this.tombstones[id]) this.tombstones[id] = incomingTombstones[id];
+      });
 
       const byId = new Map(this.events.map((e) => [e.id, e]));
-      let added = 0, updated = 0, skipped = 0;
+      let added = 0, updated = 0, skipped = 0, deleted = 0;
       list.forEach((ev) => {
         if (!ev || typeof ev !== "object" || !ev.id || !ev.title || !ev.date || !ev.start) { skipped++; return; }
+        if (this.tombstones[ev.id]) { skipped++; return; }
         if (byId.has(ev.id)) updated++; else added++;
         byId.set(ev.id, ev);
       });
 
       Array.from(byId.keys()).forEach((id) => {
-        if (id.startsWith("sample_") && !list.some((ev) => ev && ev.id === id)) byId.delete(id);
+        if (this.tombstones[id]) { byId.delete(id); deleted++; }
+        else if (id.startsWith("sample_") && !list.some((ev) => ev && ev.id === id)) byId.delete(id);
       });
 
       this.events = Array.from(byId.values());
       this.saveEvents();
       this.render();
-      return { added, updated, skipped, total: this.events.length };
+      return { added, updated, skipped, deleted, total: this.events.length };
     }
 
     setExternalEvents(list) {
@@ -691,9 +728,7 @@
       if (deleteBtn) {
         deleteBtn.addEventListener("click", () => {
           if (this.soundEnabled) Sound.delete();
-          this.events = this.events.filter((e) => e.id !== this.editingId);
-          this.saveEvents();
-          this.render();
+          this.deleteEvent(this.editingId);
           close();
         });
       }

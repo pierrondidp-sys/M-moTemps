@@ -91,8 +91,9 @@
         try {
           const payload = JSON.parse(reader.result);
           const result = widget.importEvents(payload);
+          const deletedNote = result.deleted ? `, ${result.deleted} supprimé(s)` : "";
           const skippedNote = result.skipped ? ` (${result.skipped} ignoré(s), format invalide)` : "";
-          showStatus(`Import réussi : ${result.added} ajouté(s), ${result.updated} mis à jour${skippedNote}.`, false);
+          showStatus(`Import réussi : ${result.added} ajouté(s), ${result.updated} mis à jour${deletedNote}${skippedNote}.`, false);
         } catch (err) {
           showStatus("Fichier invalide ou illisible. Vérifiez qu'il s'agit bien d'un export de Mémo Temps.", true);
         }

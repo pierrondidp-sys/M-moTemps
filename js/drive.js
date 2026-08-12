@@ -100,7 +100,7 @@
       headers: { Authorization: "Bearer " + token, "Content-Type": `multipart/related; boundary=${BOUNDARY}` },
       body: multipartBody(
         { name: FILE_NAME, mimeType: "application/json" },
-        JSON.stringify({ app: "MemoTemps", version: 1, events: [] })
+        JSON.stringify({ app: "MemoTemps", version: 1, events: [], tombstones: {} })
       )
     });
     if (!createRes.ok) throw new Error("drive-" + createRes.status);
