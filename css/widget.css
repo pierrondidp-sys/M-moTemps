@@ -57,11 +57,13 @@
 *{box-sizing:border-box;}
 body{margin:0;}
 
+/* Deliberately not a flex/grid container: .mt-widget's percentage width
+   fails to resolve against it reliably (falls back to shrink-to-fit
+   sized on its huge inner timeline content, capped only by max-width -
+   1000px even inside a narrow phone viewport). Plain block layout with
+   margin:auto always resolves width against the containing block. */
 .mt-page{
   min-height:100vh;
-  display:flex;
-  align-items:center;
-  justify-content:center;
   padding:40px 16px;
   background:var(--r-page-bg);
   font-family:"Segoe UI", Arial, sans-serif;
@@ -74,6 +76,7 @@ body{margin:0;}
   position:relative;
   width:100%;
   max-width:1000px;
+  margin:0 auto;
   padding:0 28px;
   background:
     repeating-linear-gradient(180deg, rgba(255,255,255,.04) 0px, rgba(255,255,255,.04) 1px, transparent 1px, transparent 3px),
@@ -828,4 +831,5 @@ body{margin:0;}
 @media (max-width:640px){
   .mt-header{flex-direction:column;align-items:flex-start;gap:12px;}
   .mt-legend{order:3;justify-content:flex-start;}
+  .mt-header-actions{flex-wrap:wrap;row-gap:8px;}
 }
