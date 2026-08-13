@@ -413,6 +413,25 @@
       });
     }
 
+    // rangeStart/rangeEnd/totalDays/contentWidth are fixed at load time
+    // (today -DAYS_BEFORE to +DAYS_AFTER). Saving an event with a date
+    // outside that window used to leave it positioned way past the
+    // rendered day-blocks and ticks - technically in the DOM, but with no
+    // visual context and often far beyond what's reachable by scrolling,
+    // which looked exactly like the edit had silently done nothing. Grows
+    // the window (never shrinks it) to always include a given date.
+    ensureDateInRange(dateObj) {
+      const target = startOfDay(dateObj);
+      let changed = false;
+      if (diffDays(this.rangeStart, target) < 0) { this.rangeStart = target; changed = true; }
+      if (diffDays(target, this.rangeEnd) < 0) { this.rangeEnd = target; changed = true; }
+      if (changed) {
+        this.totalDays = diffDays(this.rangeStart, this.rangeEnd) + 1;
+        this.contentWidth = this.totalDays * DAY_WIDTH;
+      }
+      return changed;
+    }
+
     centeredDate() {
       const clientW = this.el.viewport.clientWidth;
       const centerX = this.el.viewport.scrollLeft + clientW / 2;
@@ -764,9 +783,11 @@
           this.events.push({ id: uid(), ...payload });
         }
         if (this.soundEnabled) Sound.save();
+        this.ensureDateInRange(this.parseDate(payload.date));
         this.saveEvents();
         this.render();
         this.emitChanged();
+        this.goToDate(this.parseDate(payload.date));
         close();
       });
 
