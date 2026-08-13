@@ -5,7 +5,7 @@
   const CONFIG_KEY = "mt_drive_config";
   const SCOPE = "https://www.googleapis.com/auth/drive.file";
   const FILE_NAME = "memo-temps-events.json";
-  const SYNC_INTERVAL_MS = 8 * 60 * 1000;
+  const SYNC_INTERVAL_MS = 2 * 60 * 1000;
   const BOUNDARY = "mtdriveboundary";
 
   let widget = null;
