@@ -17,6 +17,8 @@
   let gisLoadPromise = null;
   let connectedEmail = null;
   let pendingChangeSync = null;
+  let lastSyncAt = null;
+  let lastSyncError = null;
 
   function loadGis() {
     if (window.google && window.google.accounts && window.google.accounts.oauth2) return Promise.resolve();
@@ -143,10 +145,34 @@
     return merged.events.length;
   }
 
+  // Every automatic sync attempt (interval, on-change, on-visibility, on
+  // load) goes through here so success/failure is always recorded and
+  // reflected on the button - a silently-swallowed failure was the main
+  // reason sync could stop working with no visible sign of it. A silent
+  // (prompt:"") token request can genuinely fail without any user action
+  // available to fix it in the background (Google increasingly requires an
+  // interactive prompt to reissue a token) - that specific case is exactly
+  // what the button's warning state exists to surface, since only a real
+  // click (not an automatic call) can complete the interactive flow.
+  function trackedSync(config, opts) {
+    return sync(config, opts)
+      .then((count) => {
+        lastSyncAt = Date.now();
+        lastSyncError = null;
+        updateButtonState();
+        return count;
+      })
+      .catch((err) => {
+        lastSyncError = err;
+        updateButtonState();
+        throw err;
+      });
+  }
+
   function startAutoSync(config) {
     stopAutoSync();
     syncTimer = setInterval(() => {
-      sync(config, { silent: true }).catch(() => { /* next manual sync or reconnect will retry */ });
+      trackedSync(config, { silent: true }).catch(() => { /* next manual sync or reconnect will retry */ });
     }, SYNC_INTERVAL_MS);
   }
   function stopAutoSync() {
@@ -162,7 +188,7 @@
   function syncNow() {
     const config = loadConfig();
     if (!config) return;
-    sync(config, { silent: true }).then(() => updateButtonState()).catch(() => {});
+    trackedSync(config, { silent: true }).catch(() => {});
   }
 
   function attach(widgetInstance) {
@@ -170,7 +196,7 @@
     injectButton();
     const config = loadConfig();
     if (config) {
-      sync(config, { silent: true }).then(() => { updateButtonState(); startAutoSync(config); }).catch(() => {});
+      trackedSync(config, { silent: true }).then(() => { startAutoSync(config); }).catch(() => {});
     }
 
     window.addEventListener("mt:events-changed", () => {
@@ -200,7 +226,12 @@
   function updateButtonState(btn) {
     btn = btn || document.querySelector(".mt-drive-btn");
     if (!btn) return;
-    btn.classList.toggle("is-connected", !!(loadConfig() && accessToken));
+    const hasConfig = !!loadConfig();
+    btn.classList.toggle("is-connected", hasConfig && !!accessToken);
+    btn.classList.toggle("has-sync-warning", hasConfig && !!lastSyncError);
+    if (hasConfig && lastSyncError) btn.title = "Google Drive — dernière synchro échouée : " + describeError(lastSyncError);
+    else if (hasConfig) btn.title = "Google Drive — connecté";
+    else btn.title = "Connecter Google Drive";
   }
 
   function escapeHtml(str) {
@@ -217,6 +248,23 @@
     return "Échec de la connexion : " + msg;
   }
 
+  function formatRelativeTime(ts) {
+    const diffS = Math.round((Date.now() - ts) / 1000);
+    if (diffS < 10) return "à l'instant";
+    if (diffS < 60) return `il y a ${diffS} s`;
+    const diffMin = Math.round(diffS / 60);
+    if (diffMin < 60) return `il y a ${diffMin} min`;
+    const diffH = Math.round(diffMin / 60);
+    return `il y a ${diffH} h`;
+  }
+
+  function statusNote(config) {
+    if (!config) return "";
+    if (lastSyncError) return `<p class="mt-outlook-error">Dernière tentative en échec${lastSyncAt ? " (dernière réussite " + formatRelativeTime(lastSyncAt) + ")" : ""} : ${escapeHtml(describeError(lastSyncError))}</p>`;
+    if (lastSyncAt) return `<p class="mt-backup-status">Dernière synchro réussie ${formatRelativeTime(lastSyncAt)}.</p>`;
+    return `<p class="mt-readonly-note">Aucune synchro effectuée depuis l'ouverture de l'application.</p>`;
+  }
+
   function openSettingsModal() {
     const config = loadConfig() || { clientId: "" };
     const connected = !!accessToken;
@@ -230,6 +278,7 @@
           ? `<p class="mt-readonly-note">Connecté${connectedEmail ? " en tant que " + escapeHtml(connectedEmail) : ""}. Le fichier <strong>${FILE_NAME}</strong> de votre Drive est synchronisé avec vos objectifs et rendez-vous.</p>`
           : `<p class="mt-readonly-note">Renseignez l'ID client de votre application Google Cloud, puis connectez-vous. Un fichier "${FILE_NAME}" sera créé (ou réutilisé) dans votre Drive pour la synchronisation.</p>`
         }
+        ${loadConfig() ? statusNote(config) : ""}
         <form>
           <div class="mt-field">
             <label>ID client OAuth</label>
@@ -268,6 +317,8 @@
         tokenExpiry = 0;
         fileId = null;
         connectedEmail = null;
+        lastSyncAt = null;
+        lastSyncError = null;
         updateButtonState();
         close();
       });
@@ -288,9 +339,8 @@
         saveConfig(newConfig);
         const token = await getToken(newConfig);
         connectedEmail = await fetchProfile(token);
-        await sync(newConfig);
+        await trackedSync(newConfig);
         startAutoSync(newConfig);
-        updateButtonState();
         close();
       } catch (err) {
         connectBtn.disabled = false;

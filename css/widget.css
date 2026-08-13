@@ -343,6 +343,20 @@ body{margin:0;}
   background:radial-gradient(circle at 35% 30%,#c9f26a,var(--r-green) 60%,var(--r-green-dark));
   box-shadow:0 0 6px var(--r-green);
 }
+/* Last sync attempt failed - visible even when a stale "connected" ring
+   would otherwise suggest everything is fine, so a silent background
+   failure doesn't go unnoticed until the user manually reopens Drive
+   settings. */
+.mt-drive-btn.has-sync-warning{box-shadow:
+    0 1px 0 rgba(255,255,255,.9) inset,
+    0 -2px 4px rgba(60,52,32,.45) inset,
+    0 2px 4px rgba(0,0,0,.35),
+    0 0 0 1px var(--r-red),
+    0 0 10px rgba(182,54,42,.55);}
+.mt-drive-btn.has-sync-warning::after{
+  background:radial-gradient(circle at 35% 30%,#ff8f82,var(--r-red));
+  box-shadow:0 0 6px var(--r-red);
+}
 
 .mt-add-btn{
   flex:0 0 auto;
