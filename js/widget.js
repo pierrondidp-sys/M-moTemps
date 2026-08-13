@@ -163,6 +163,16 @@
       this.tombstones[id] = Date.now();
       this.saveEvents();
       this.render();
+      this.emitChanged();
+    }
+
+    // Fired only for genuine local user edits (add/edit/delete an event),
+    // never from the merge inside importEvents() - otherwise a sync pulling
+    // in remote changes would immediately re-trigger another sync, and so
+    // on. drive.js listens for this to push a change to Drive right away
+    // instead of waiting for the next periodic sync.
+    emitChanged() {
+      window.dispatchEvent(new CustomEvent("mt:events-changed"));
     }
 
     exportEvents() {
@@ -756,6 +766,7 @@
         if (this.soundEnabled) Sound.save();
         this.saveEvents();
         this.render();
+        this.emitChanged();
         close();
       });
 

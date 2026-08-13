@@ -16,6 +16,7 @@
   let syncTimer = null;
   let gisLoadPromise = null;
   let connectedEmail = null;
+  let pendingChangeSync = null;
 
   function loadGis() {
     if (window.google && window.google.accounts && window.google.accounts.oauth2) return Promise.resolve();
@@ -152,6 +153,18 @@
     if (syncTimer) { clearInterval(syncTimer); syncTimer = null; }
   }
 
+  // Two extra sync triggers beyond the periodic timer, so changes don't
+  // have to wait up to SYNC_INTERVAL_MS to show up on another device:
+  // - push soon after a genuine local edit (widget.js's "mt:events-changed"),
+  //   so a change made right before closing the app still gets uploaded;
+  // - pull as soon as the app is opened/foregrounded again, so reopening
+  //   the app on a device picks up what changed elsewhere in the meantime.
+  function syncNow() {
+    const config = loadConfig();
+    if (!config) return;
+    sync(config, { silent: true }).then(() => updateButtonState()).catch(() => {});
+  }
+
   function attach(widgetInstance) {
     widget = widgetInstance;
     injectButton();
@@ -159,6 +172,14 @@
     if (config) {
       sync(config, { silent: true }).then(() => { updateButtonState(); startAutoSync(config); }).catch(() => {});
     }
+
+    window.addEventListener("mt:events-changed", () => {
+      clearTimeout(pendingChangeSync);
+      pendingChangeSync = setTimeout(syncNow, 1200);
+    });
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") syncNow();
+    });
   }
 
   function injectButton() {
