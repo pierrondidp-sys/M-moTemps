@@ -508,6 +508,17 @@
       const rangeStartKey = dateKey(this.rangeStart);
       const rangeEndKey = dateKey(this.rangeEnd);
 
+      // Which dates have an objectif and/or a rendez-vous (own events and
+      // any imported read-only ones), so the calendar can mark them - a
+      // snapshot taken once when the picker opens is enough, since events
+      // don't change while it's up.
+      const eventDates = new Map();
+      this.events.concat(this.externalEvents).forEach((ev) => {
+        const info = eventDates.get(ev.date) || { objectif: false, rdv: false };
+        if (ev.category === "objectif") info.objectif = true; else info.rdv = true;
+        eventDates.set(ev.date, info);
+      });
+
       const renderCalendar = () => {
         const first = new Date(displayYear, displayMonth, 1);
         monthLabel.textContent = capitalize(new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" }).format(first));
@@ -524,7 +535,9 @@
           if (diffDays(this.today, d) === 0) classes.push("is-today");
           if (diffDays(viewed, d) === 0) classes.push("is-viewed");
           if (!inRange) classes.push("is-disabled");
-          html += `<button type="button" class="${classes.join(" ")}" ${inRange ? "" : "disabled"} data-date="${key}">${d.getDate()}</button>`;
+          const info = eventDates.get(key);
+          const dots = `<span class="mt-dp-day-dots">${info && info.objectif ? '<i class="mt-dp-dot objectif"></i>' : ""}${info && info.rdv ? '<i class="mt-dp-dot rdv"></i>' : ""}</span>`;
+          html += `<button type="button" class="${classes.join(" ")}" ${inRange ? "" : "disabled"} data-date="${key}"><span class="mt-dp-day-num">${d.getDate()}</span>${dots}</button>`;
         }
         gridEl.innerHTML = html;
 

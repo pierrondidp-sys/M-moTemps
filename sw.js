@@ -1,4 +1,4 @@
-const CACHE_NAME = "mt-cache-v26";
+const CACHE_NAME = "mt-cache-v27";
 const APP_SHELL = [
   "./",
   "./index.html",
