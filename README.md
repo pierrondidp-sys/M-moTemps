@@ -21,6 +21,22 @@ python3 -m http.server 8080
 # puis ouvrir http://localhost:8080
 ```
 
+Peut aussi être installée comme application (bouton « Installer » du navigateur) ou utilisée comme véritable application Windows autonome — voir ci-dessous.
+
+## Application de bureau Windows (.exe)
+
+Le dossier `desktop/` contient un habillage Electron : il lance un petit serveur local puis ouvre l'application dans sa propre fenêtre, sans navigateur ni barre d'adresse.
+
+Pour obtenir l'installateur Windows sans rien installer sur son PC : dans l'onglet **Actions** du dépôt GitHub, ouvrir le workflow **Build Windows installer**, cliquer sur **Run workflow**, attendre la fin du build (quelques minutes), puis télécharger l'artefact `memo-temps-windows-installer` généré. L'installateur n'étant pas signé, Windows SmartScreen affiche un avertissement au premier lancement (« Informations complémentaires » → « Exécuter quand même »).
+
+Pour builder soi-même (avec Node.js installé) :
+
+```bash
+npm install
+npm run dist:win   # génère l'installateur dans dist/
+npm start           # lance l'app en mode développement
+```
+
 ## Intégration dans une autre page
 
 Le widget est autonome et réutilisable :
