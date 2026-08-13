@@ -193,6 +193,13 @@
     // back in. The only exception is the untouched starter demo events
     // (id "sample_*") seeded on a fresh install: those are cleared out
     // once real data is imported, so they don't linger as clutter.
+    //
+    // For an id present on both sides, the one with the newer updatedAt
+    // wins (last-write-wins) rather than incoming always overwriting local
+    // unconditionally - otherwise a sync whose download step still reflects
+    // a pre-edit snapshot (very likely seconds after an edit, before that
+    // edit's own upload has landed) would silently revert a just-made
+    // change back to its old value, then re-upload that stale value.
     importEvents(payload) {
       const list = Array.isArray(payload) ? payload : (payload && Array.isArray(payload.events) ? payload.events : null);
       if (!list) throw new Error("format-invalide");
@@ -207,6 +214,8 @@
       list.forEach((ev) => {
         if (!ev || typeof ev !== "object" || !ev.id || !ev.title || !ev.date || !ev.start) { skipped++; return; }
         if (this.tombstones[ev.id]) { skipped++; return; }
+        const local = byId.get(ev.id);
+        if (local && (local.updatedAt || 0) > (ev.updatedAt || 0)) { skipped++; return; }
         if (byId.has(ev.id)) updated++; else added++;
         byId.set(ev.id, ev);
       });
@@ -785,7 +794,8 @@
           start: fd.get("start"),
           end: fd.get("end") || "",
           notes: fd.get("notes").trim(),
-          done: existingEvent ? existingEvent.done : false
+          done: existingEvent ? existingEvent.done : false,
+          updatedAt: Date.now()
         };
         if (payload.end && payload.end <= payload.start) payload.end = "";
         if (!payload.title || !payload.date || !payload.start) return;
