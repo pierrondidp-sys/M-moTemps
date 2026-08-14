@@ -7,11 +7,13 @@
 //     authenticating as a service account (no interactive login, no
 //     refresh-token expiry issues - unlike the app's own OAuth popup flow);
 //  2. finds events starting soon that haven't been e-mailed yet;
-//  3. sends a reminder e-mail for each one via the Gmail API, with the same
-//     service account impersonating GMAIL_USER through domain-wide
-//     delegation (Workspace admin setup) - no app password involved, so it
-//     keeps working even where the org enforces security keys / blocks
-//     "less secure app" access;
+//  3. sends a reminder e-mail for each one via the Gmail API, authenticating
+//     with a standalone OAuth2 refresh token (GMAIL_OAUTH_*) obtained once
+//     via scripts/get-gmail-refresh-token.mjs - no app password and no
+//     Workspace admin console step involved, so it keeps working even where
+//     the org enforces security keys, blocks "less secure app" access, or
+//     simply doesn't expose domain-wide delegation in a reduced-edition
+//     admin console;
 //  4. records what it just sent in automation/notified-state.json so the
 //     next run (a few minutes later) doesn't send it again. That file is
 //     committed back to the repo by the workflow step that calls this
@@ -19,7 +21,7 @@
 //     two systems never fight over the same JSON shape.
 
 import { readFile, writeFile } from "node:fs/promises";
-import { GoogleAuth, JWT } from "google-auth-library";
+import { GoogleAuth } from "google-auth-library";
 
 const DRIVE_FILE_NAME = process.env.DRIVE_FILE_NAME || "memo-temps-events.json";
 const STATE_PATH = new URL("../automation/notified-state.json", import.meta.url);
@@ -53,22 +55,25 @@ async function getDriveAccessToken() {
   return token;
 }
 
-async function getGmailAccessToken(userEmail) {
-  const credentials = parseServiceAccountKey();
-  const client = new JWT({
-    email: credentials.client_email,
-    key: credentials.private_key,
-    scopes: ["https://www.googleapis.com/auth/gmail.send"],
-    subject: userEmail
+async function getGmailAccessToken() {
+  const res = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: requireEnv("GMAIL_OAUTH_CLIENT_ID"),
+      client_secret: requireEnv("GMAIL_OAUTH_CLIENT_SECRET"),
+      refresh_token: requireEnv("GMAIL_OAUTH_REFRESH_TOKEN"),
+      grant_type: "refresh_token"
+    })
   });
-  const { token } = await client.getAccessToken();
-  if (!token) {
+  const data = await res.json();
+  if (!res.ok || !data.access_token) {
     throw new Error(
-      "Impossible d'obtenir un jeton d'accès Gmail. Vérifiez que la délégation de domaine est bien " +
-      "configurée pour ce compte de service (scope gmail.send) dans la console d'administration Workspace."
+      `Impossible de rafraîchir le jeton Gmail (${res.status}) : ${JSON.stringify(data)}. ` +
+      `Le refresh token a peut-être été révoqué - régénérez-en un avec scripts/get-gmail-refresh-token.mjs.`
     );
   }
-  return token;
+  return data.access_token;
 }
 
 async function findFileId(token) {
@@ -204,7 +209,7 @@ async function main() {
     return;
   }
 
-  const accessToken = await getGmailAccessToken(requireEnv("GMAIL_USER"));
+  const accessToken = await getGmailAccessToken();
 
   for (const ev of due) {
     await sendReminder(accessToken, ev);
