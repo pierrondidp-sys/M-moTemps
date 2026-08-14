@@ -39,27 +39,18 @@ npm start           # lance l'app en mode développement
 
 ## Rappels par e-mail (15 minutes avant un évènement)
 
-Un rappel par e-mail peut être envoyé automatiquement ~15 minutes avant chaque objectif/rendez-vous, **même si l'application ou le téléphone est fermé** à ce moment-là. Comme l'application elle-même n'a pas de serveur, cette partie tourne indépendamment via un workflow GitHub Actions planifié (`.github/workflows/event-reminders.yml`, toutes les 5 minutes) qui lit directement le fichier `memo-temps-events.json` sur Google Drive et envoie l'e-mail via l'API Gmail. Script : `scripts/send-reminders.mjs`.
+Un rappel par e-mail peut être envoyé automatiquement ~15 minutes avant chaque objectif/rendez-vous, **même si l'application ou le téléphone est fermé** à ce moment-là. Comme l'application elle-même n'a pas de serveur, cette partie tourne indépendamment via un workflow GitHub Actions planifié (`.github/workflows/event-reminders.yml`, toutes les 5 minutes) qui lit directement le fichier `memo-temps-events.json` sur Google Drive et envoie l'e-mail via Gmail. Script : `scripts/send-reminders.mjs`.
 
 Configuration ponctuelle nécessaire (une seule fois) :
 
 1. **Compte de service Google** (pour lire le fichier Drive sans connexion interactive) : dans [Google Cloud Console](https://console.cloud.google.com/) → *IAM et administration* → *Comptes de service* → *Créer un compte de service* → une fois créé, onglet *Clés* → *Ajouter une clé* → *Créer une clé* → format **JSON**. Conserver ce fichier (c'est un secret).
 2. **Partager le fichier Drive** : dans Google Drive, clic droit sur `memo-temps-events.json` → *Partager* → coller l'adresse `...@...iam.gserviceaccount.com` du compte de service (visible dans le JSON sous `client_email`) → rôle **Lecteur**.
-3. **OAuth2 Gmail** (envoi de l'e-mail, sans mot de passe d'application ni accès à l'admin console Workspace) :
-   - Dans [Google Cloud Console](https://console.cloud.google.com/) → *API et services* → *Bibliothèque* → activer l'**API Gmail**.
-   - *API et services* → *Écran de consentement OAuth* → type d'utilisateur **Interne** (réservé au domaine) → ajouter le scope `https://www.googleapis.com/auth/gmail.send`.
-   - *API et services* → *Identifiants* → *Créer des identifiants* → *ID client OAuth* → type **Application de bureau**. Noter le **Client ID** et le **Client Secret** générés.
-   - En local (pas en CI), lancer une fois :
-     ```bash
-     GMAIL_OAUTH_CLIENT_ID=... GMAIL_OAUTH_CLIENT_SECRET=... node scripts/get-gmail-refresh-token.mjs
-     ```
-     Ouvrir l'URL affichée, se connecter avec l'adresse Gmail d'envoi, autoriser l'accès : le script affiche un **refresh token** à conserver.
+3. **Compte Gmail dédié à l'envoi** : créez (ou utilisez) un compte Gmail grand public **distinct** de votre adresse habituelle, utilisé uniquement comme relais technique d'envoi (ex. `memotemps.rappels@gmail.com`) — évitez une adresse Workspace/pro, dont les politiques de sécurité de l'organisation peuvent bloquer les mots de passe d'application. Sur ce compte : activer la validation en 2 étapes ([myaccount.google.com/security](https://myaccount.google.com/security)), puis générer un mot de passe d'application sur [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords).
 4. **Secrets GitHub** : sur la page du dépôt → *Settings* → *Secrets and variables* → *Actions* → *New repository secret*, ajouter :
    - `GOOGLE_SERVICE_ACCOUNT_KEY` : contenu complet du fichier JSON de l'étape 1
-   - `GMAIL_USER` : adresse Gmail utilisée comme expéditeur (celle autorisée à l'étape 3)
-   - `GMAIL_OAUTH_CLIENT_ID` / `GMAIL_OAUTH_CLIENT_SECRET` : identifiants OAuth de l'étape 3
-   - `GMAIL_OAUTH_REFRESH_TOKEN` : refresh token obtenu à l'étape 3
-   - `REMINDER_EMAIL_TO` : adresse qui doit recevoir les rappels
+   - `GMAIL_USER` : adresse du compte Gmail dédié de l'étape 3
+   - `GMAIL_APP_PASSWORD` : mot de passe d'application de l'étape 3
+   - `REMINDER_EMAIL_TO` : adresse qui doit **recevoir** les rappels (peut être votre adresse @seineouest.fr habituelle — indépendante du compte technique d'envoi)
 5. Tester : onglet **Actions** → **Send event reminders** → **Run workflow**.
 
 La fenêtre d'envoi est volontairement large (10 à 20 minutes avant l'évènement, réglable via les variables `REMINDER_MINUTES_BEFORE`/`REMINDER_WINDOW_MINUTES` en haut du script) pour absorber les délais d'exécution de GitHub Actions, qui ne garantit pas un déclenchement à la minute près.

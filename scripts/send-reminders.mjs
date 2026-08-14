@@ -7,13 +7,15 @@
 //     authenticating as a service account (no interactive login, no
 //     refresh-token expiry issues - unlike the app's own OAuth popup flow);
 //  2. finds events starting soon that haven't been e-mailed yet;
-//  3. sends a reminder e-mail for each one via the Gmail API, authenticating
-//     with a standalone OAuth2 refresh token (GMAIL_OAUTH_*) obtained once
-//     via scripts/get-gmail-refresh-token.mjs - no app password and no
-//     Workspace admin console step involved, so it keeps working even where
-//     the org enforces security keys, blocks "less secure app" access, or
-//     simply doesn't expose domain-wide delegation in a reduced-edition
-//     admin console;
+//  3. sends a reminder e-mail for each one via Gmail SMTP, authenticating
+//     with a dedicated Gmail account's app password (GMAIL_USER /
+//     GMAIL_APP_PASSWORD) - deliberately a separate, plain consumer Gmail
+//     account used only as a sending relay, not the Workspace domain
+//     account: app passwords on @seineouest.fr turned out to be disabled by
+//     the org's security policy, and neither domain-wide delegation nor an
+//     "Internal" OAuth app were reachable there either (no exposed admin
+//     console page, no Cloud org resource). REMINDER_EMAIL_TO still controls
+//     where the reminder actually lands, independently of who sends it;
 //  4. records what it just sent in automation/notified-state.json so the
 //     next run (a few minutes later) doesn't send it again. That file is
 //     committed back to the repo by the workflow step that calls this
@@ -22,6 +24,7 @@
 
 import { readFile, writeFile } from "node:fs/promises";
 import { GoogleAuth } from "google-auth-library";
+import nodemailer from "nodemailer";
 
 const DRIVE_FILE_NAME = process.env.DRIVE_FILE_NAME || "memo-temps-events.json";
 const STATE_PATH = new URL("../automation/notified-state.json", import.meta.url);
@@ -53,27 +56,6 @@ async function getDriveAccessToken() {
   const { token } = await client.getAccessToken();
   if (!token) throw new Error("Impossible d'obtenir un jeton d'accès Google (compte de service).");
   return token;
-}
-
-async function getGmailAccessToken() {
-  const res = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      client_id: requireEnv("GMAIL_OAUTH_CLIENT_ID"),
-      client_secret: requireEnv("GMAIL_OAUTH_CLIENT_SECRET"),
-      refresh_token: requireEnv("GMAIL_OAUTH_REFRESH_TOKEN"),
-      grant_type: "refresh_token"
-    })
-  });
-  const data = await res.json();
-  if (!res.ok || !data.access_token) {
-    throw new Error(
-      `Impossible de rafraîchir le jeton Gmail (${res.status}) : ${JSON.stringify(data)}. ` +
-      `Le refresh token a peut-être été révoqué - régénérez-en un avec scripts/get-gmail-refresh-token.mjs.`
-    );
-  }
-  return data.access_token;
 }
 
 async function findFileId(token) {
@@ -153,45 +135,14 @@ function formatEmail(ev) {
   return { subject, text: lines.join("\n") };
 }
 
-function encodeRfc2047(value) {
-  return `=?UTF-8?B?${Buffer.from(value, "utf8").toString("base64")}?=`;
-}
-
-function buildRawMessage({ from, to, subject, text }) {
-  const headers = [
-    `From: ${from}`,
-    `To: ${to}`,
-    `Subject: ${encodeRfc2047(subject)}`,
-    `MIME-Version: 1.0`,
-    `Content-Type: text/plain; charset="UTF-8"`,
-    `Content-Transfer-Encoding: base64`
-  ];
-  const body = Buffer.from(text, "utf8").toString("base64");
-  const message = `${headers.join("\r\n")}\r\n\r\n${body}`;
-  return Buffer.from(message, "utf8")
-    .toString("base64")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "");
-}
-
-async function sendReminder(accessToken, ev) {
+async function sendReminder(transporter, ev) {
   const { subject, text } = formatEmail(ev);
-  const raw = buildRawMessage({
+  await transporter.sendMail({
     from: requireEnv("GMAIL_USER"),
     to: process.env.REMINDER_EMAIL_TO || requireEnv("GMAIL_USER"),
     subject,
     text
   });
-  const res = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
-    method: "POST",
-    headers: {
-      Authorization: "Bearer " + accessToken,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({ raw })
-  });
-  if (!res.ok) throw new Error(`Gmail API a échoué (${res.status}) : ${await res.text()}`);
 }
 
 async function main() {
@@ -209,10 +160,13 @@ async function main() {
     return;
   }
 
-  const accessToken = await getGmailAccessToken();
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: { user: requireEnv("GMAIL_USER"), pass: requireEnv("GMAIL_APP_PASSWORD") }
+  });
 
   for (const ev of due) {
-    await sendReminder(accessToken, ev);
+    await sendReminder(transporter, ev);
     state[`${ev.id}:${ev.updatedAt || 0}`] = { notifiedAt: now, eventStart: eventStartMs(ev) };
     console.log(`E-mail envoyé pour "${ev.title}" (${ev.date} ${ev.start}).`);
   }
@@ -220,7 +174,7 @@ async function main() {
   await writeFile(STATE_PATH, JSON.stringify(state, null, 2) + "\n");
 }
 
-export { eventStartMs, dueEvents, pruneState, formatEmail, buildRawMessage, findFileId, downloadEvents, main };
+export { eventStartMs, dueEvents, pruneState, formatEmail, findFileId, downloadEvents, main };
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   main().catch((err) => {
