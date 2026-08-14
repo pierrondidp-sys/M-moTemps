@@ -39,17 +39,16 @@ npm start           # lance l'app en mode développement
 
 ## Rappels par e-mail (15 minutes avant un évènement)
 
-Un rappel par e-mail peut être envoyé automatiquement ~15 minutes avant chaque objectif/rendez-vous, **même si l'application ou le téléphone est fermé** à ce moment-là. Comme l'application elle-même n'a pas de serveur, cette partie tourne indépendamment via un workflow GitHub Actions planifié (`.github/workflows/event-reminders.yml`, toutes les 5 minutes) qui lit directement le fichier `memo-temps-events.json` sur Google Drive et envoie l'e-mail via Gmail. Script : `scripts/send-reminders.mjs`.
+Un rappel par e-mail peut être envoyé automatiquement ~15 minutes avant chaque objectif/rendez-vous, **même si l'application ou le téléphone est fermé** à ce moment-là. Comme l'application elle-même n'a pas de serveur, cette partie tourne indépendamment via un workflow GitHub Actions planifié (`.github/workflows/event-reminders.yml`, toutes les 5 minutes) qui lit directement le fichier `memo-temps-events.json` sur Google Drive et envoie l'e-mail via l'API Gmail. Script : `scripts/send-reminders.mjs`.
 
 Configuration ponctuelle nécessaire (une seule fois) :
 
-1. **Compte de service Google** (pour lire le fichier Drive sans connexion interactive) : dans [Google Cloud Console](https://console.cloud.google.com/) → *IAM et administration* → *Comptes de service* → *Créer un compte de service* → une fois créé, onglet *Clés* → *Ajouter une clé* → *Créer une clé* → format **JSON**. Conserver ce fichier (c'est un secret).
-2. **Partager le fichier** : dans Google Drive, clic droit sur `memo-temps-events.json` → *Partager* → coller l'adresse `...@...iam.gserviceaccount.com` du compte de service (visible dans le JSON sous `client_email`) → rôle **Lecteur**.
-3. **Mot de passe d'application Gmail** : activer la validation en 2 étapes sur le compte Google si besoin, puis générer un mot de passe d'application sur [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords).
+1. **Compte de service Google** (pour lire le fichier Drive et envoyer l'e-mail sans connexion interactive) : dans [Google Cloud Console](https://console.cloud.google.com/) → *IAM et administration* → *Comptes de service* → *Créer un compte de service* → une fois créé, onglet *Clés* → *Ajouter une clé* → *Créer une clé* → format **JSON**. Conserver ce fichier (c'est un secret). Activer aussi l'**API Gmail** sur ce même projet (*API et services* → *Bibliothèque*).
+2. **Partager le fichier Drive** : dans Google Drive, clic droit sur `memo-temps-events.json` → *Partager* → coller l'adresse `...@...iam.gserviceaccount.com` du compte de service (visible dans le JSON sous `client_email`) → rôle **Lecteur**.
+3. **Délégation de domaine (Gmail)** — nécessite d'être admin Google Workspace du domaine d'envoi : dans la console d'administration ([admin.google.com](https://admin.google.com)) → *Sécurité* → *Contrôles des API* → *Délégation au niveau du domaine* → *Ajouter une nouvelle* → renseigner le **Client ID** numérique du compte de service (visible dans la console IAM, ou dans le JSON sous `client_id`) avec le scope `https://www.googleapis.com/auth/gmail.send`. Le script demande ensuite un jeton Gmail en se faisant passer pour l'adresse `GMAIL_USER` — aucun mot de passe d'application requis, ce qui fonctionne même quand l'organisation impose des clés de sécurité ou bloque les « applications moins sécurisées ».
 4. **Secrets GitHub** : sur la page du dépôt → *Settings* → *Secrets and variables* → *Actions* → *New repository secret*, ajouter :
    - `GOOGLE_SERVICE_ACCOUNT_KEY` : contenu complet du fichier JSON de l'étape 1
-   - `GMAIL_USER` : adresse Gmail d'envoi
-   - `GMAIL_APP_PASSWORD` : mot de passe d'application de l'étape 3
+   - `GMAIL_USER` : adresse Gmail (du domaine délégué à l'étape 3) utilisée comme expéditeur
    - `REMINDER_EMAIL_TO` : adresse qui doit recevoir les rappels
 5. Tester : onglet **Actions** → **Send event reminders** → **Run workflow**.
 
