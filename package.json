@@ -6,7 +6,12 @@
   "main": "desktop/main.js",
   "scripts": {
     "start": "electron .",
-    "dist:win": "electron-builder --win nsis"
+    "dist:win": "electron-builder --win nsis",
+    "send-reminders": "node scripts/send-reminders.mjs"
+  },
+  "dependencies": {
+    "google-auth-library": "^9.15.1",
+    "nodemailer": "^6.9.16"
   },
   "devDependencies": {
     "electron": "^37.0.0",
