@@ -137,8 +137,9 @@ function formatEmail(ev) {
 
 async function sendReminder(transporter, ev) {
   const { subject, text } = formatEmail(ev);
+  const fromName = process.env.GMAIL_FROM_NAME || "Mémo Temps";
   await transporter.sendMail({
-    from: requireEnv("GMAIL_USER"),
+    from: `"${fromName}" <${requireEnv("GMAIL_USER")}>`,
     to: process.env.REMINDER_EMAIL_TO || requireEnv("GMAIL_USER"),
     subject,
     text
