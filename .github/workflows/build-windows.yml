@@ -21,7 +21,10 @@ jobs:
       - name: Build the Windows installer
         run: npm run dist:win
 
-      - name: Upload installer
+      - name: Build the Windows widget installer
+        run: npm run dist:win:widget
+
+      - name: Upload installers
         uses: actions/upload-artifact@v4
         with:
           name: memo-temps-windows-installer

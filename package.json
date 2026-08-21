@@ -6,7 +6,9 @@
   "main": "desktop/main.js",
   "scripts": {
     "start": "electron .",
+    "start:widget": "electron desktop/widget-main.js",
     "dist:win": "electron-builder --win nsis",
+    "dist:win:widget": "electron-builder --win nsis --config electron-builder.widget.yml",
     "send-reminders": "node scripts/send-reminders.mjs"
   },
   "dependencies": {

@@ -6,6 +6,13 @@
 <meta name="description" content="Frise chronologique jour/heure pour vos objectifs et rendez-vous du jour.">
 <meta name="theme-color" content="#4a2f1a">
 <title>Mémo Temps — Frise du jour</title>
+<script>
+  // Set by desktop/widget-main.js (?mode=widget): switches to a compact,
+  // borderless layout that hugs the widget instead of filling a full page.
+  if (new URLSearchParams(location.search).get("mode") === "widget") {
+    document.documentElement.classList.add("mt-widget-mode");
+  }
+</script>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="icons/icon-16.png">

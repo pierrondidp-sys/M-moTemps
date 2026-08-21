@@ -47,6 +47,35 @@ body{margin:0;}
   color:var(--r-ink);
 }
 
+/* ---------- Desktop widget mode (desktop/widget-main.js, ?mode=widget) ----------
+   Frameless, transparent, always-on-top window: the page must hug the widget
+   exactly (no page padding/background) and the header becomes the window's
+   drag handle, since there's no OS title bar to grab. */
+html.mt-widget-mode,
+html.mt-widget-mode body{
+  background:transparent;
+  margin:0;
+}
+.mt-widget-mode .mt-page{
+  min-height:0;
+  height:100vh;
+  padding:0;
+  background:transparent;
+  display:flex;
+}
+.mt-widget-mode .mt-widget{
+  width:100%;
+  max-width:none;
+  margin:0;
+}
+.mt-widget-mode .mt-header{
+  -webkit-app-region:drag;
+}
+.mt-widget-mode .mt-header-actions,
+.mt-widget-mode .mt-header-actions *{
+  -webkit-app-region:no-drag;
+}
+
 /* ---------- Chassis: aluminium faceplate framed in walnut ---------- */
 .mt-widget{
   position:relative;

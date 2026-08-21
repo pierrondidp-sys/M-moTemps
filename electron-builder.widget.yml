@@ -1,0 +1,30 @@
+# Separate electron-builder config for the standalone widget app (see
+# desktop/widget-main.js): same files as the main app, but packaged under a
+# distinct product/app id and booting the widget's frameless, always-on-top
+# window instead of the full desktop window (desktop/main.js).
+appId: com.memotemps.widget
+productName: Mémo Temps Widget
+asar: true
+files:
+  - desktop/**/*
+  - index.html
+  - manifest.json
+  - sw.js
+  - css/**/*
+  - js/**/*
+  - icons/**/*
+directories:
+  output: dist
+  buildResources: build
+extraMetadata:
+  main: desktop/widget-main.js
+win:
+  target:
+    - nsis
+  icon: build/icon.ico
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
