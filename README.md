@@ -28,7 +28,7 @@ Peut aussi être installée comme application (bouton « Installer » du navigat
 Le dossier `desktop/` contient deux habillages Electron, tous les deux lancent un petit serveur local et affichent l'application sans navigateur ni barre d'adresse :
 
 - **Mémo Temps** (`desktop/main.js`) : fenêtre classique 1400×900, avec barre de titre.
-- **Mémo Temps Widget** (`desktop/widget-main.js`) : petite appli dédiée en fenêtre **sans bordure**, **toujours au premier plan**, déplaçable où vous voulez (glisser depuis l'en-tête du widget) et redimensionnable. Une icône dans la barre système (près de l'horloge) permet de l'afficher/masquer, de réinitialiser sa position, de désactiver le premier plan, ou de quitter — il n'y a pas de bouton de fermeture sur la fenêtre elle-même. Les deux applications sont indépendantes et peuvent tourner en même temps.
+- **Mémo Temps Widget** (`desktop/widget-main.js`) : petite appli dédiée en fenêtre **sans bordure**, **toujours au premier plan**, déplaçable où vous voulez (glisser depuis l'en-tête du widget) et redimensionnable. Une icône dans la barre système (près de l'horloge) permet de l'afficher/masquer, de réinitialiser sa position, de désactiver le premier plan, ou de quitter — il n'y a pas de bouton de fermeture sur la fenêtre elle-même. Les deux applications tournent sur la même origine locale (`http://127.0.0.1:51733`) et partagent donc automatiquement les mêmes données (`localStorage`) — elles peuvent aussi tourner en même temps sans se gêner.
 
 Pour obtenir les installateurs Windows sans rien installer sur son PC : dans l'onglet **Actions** du dépôt GitHub, ouvrir le workflow **Build Windows installer**, cliquer sur **Run workflow**, attendre la fin du build (quelques minutes), puis télécharger l'artefact `memo-temps-windows-installer` généré — il contient les deux `.exe` (fenêtre classique et widget). Les installateurs n'étant pas signés, Windows SmartScreen affiche un avertissement au premier lancement (« Informations complémentaires » → « Exécuter quand même »).
 
@@ -41,6 +41,21 @@ npm run dist:win:widget   # installateur du widget dédié dans dist/
 npm start                 # lance l'app classique en mode développement
 npm run start:widget      # lance le widget en mode développement
 ```
+
+## Synchroniser les données entre le navigateur et les apps Windows
+
+Les deux applications Windows partagent déjà les mêmes données entre elles (voir ci-dessus), mais un onglet de navigateur reste, par nature, une origine différente : son `localStorage` ne peut pas être partagé directement avec les apps de bureau. Le pont entre les deux est la synchronisation Google Drive déjà intégrée (bouton 📁 dans l'en-tête) : chaque version connectée au même compte Google lit/écrit le même fichier `memo-temps-events.json` sur le Drive, avec une synchro automatique toutes les ~2 minutes (et à chaque modification).
+
+Configuration (une fois par version à synchroniser) :
+
+1. Dans [Google Cloud Console](https://console.cloud.google.com/) → *API et services* → *Identifiants* → ouvrir (ou créer) un **ID client OAuth** de type **Application Web**.
+2. Dans **Origines JavaScript autorisées**, ajouter toutes les origines depuis lesquelles vous ouvrez l'application, par exemple :
+   - `http://localhost:8080` (ou le port utilisé pour la version navigateur)
+   - `http://127.0.0.1:51733` (les deux apps Windows, qui partagent cette même origine)
+3. Vérifier que l'**API Google Drive** est activée sur ce projet, et que votre adresse Google est ajoutée comme utilisateur de test sur l'écran de consentement OAuth (si l'appli n'est pas publiée).
+4. Dans **chaque version** (navigateur, app classique, widget) : cliquer sur le bouton 📁 dans l'en-tête → coller le même **ID client OAuth** → **Se connecter** → autoriser avec le même compte Google dans chacune.
+
+Le bouton 📁 devient plein (connecté) une fois la synchro réussie, ou affiche un contour rouge en cas d'échec — cliquer dessus affiche le message d'erreur exact.
 
 ## Rappels par e-mail (15 minutes avant un évènement)
 

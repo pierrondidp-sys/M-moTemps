@@ -42,7 +42,18 @@ function startServer(rootDir, port) {
         res.end(data);
       });
     });
-    server.once("error", reject);
+    server.once("error", (err) => {
+      if (err.code === "EADDRINUSE") {
+        // The other desktop entry point (desktop/main.js / widget-main.js)
+        // is already serving this same port - that's fine, they're meant to
+        // share one origin (and therefore one localStorage) even when both
+        // run at the same time. Resolve with null: the caller doesn't need
+        // its own server instance, just for the port to already be live.
+        resolve(null);
+        return;
+      }
+      reject(err);
+    });
     server.listen(port, "127.0.0.1", () => resolve(server));
   });
 }

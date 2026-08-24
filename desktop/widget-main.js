@@ -5,9 +5,12 @@ const path = require("path");
 const fs = require("fs");
 const { startServer } = require("./server");
 
-// Separate port from the full desktop app (desktop/main.js) so both can run
-// at the same time without clashing.
-const PORT = 51734;
+// Same fixed port as the full desktop app (desktop/main.js) - same origin,
+// same localStorage, so objectifs/rendez-vous entered in one app show up in
+// the other. startServer() tolerates the port already being taken by
+// whichever of the two apps started first, so running both at once still
+// works: only one of them actually owns the HTTP server.
+const PORT = 51733;
 const APP_ROOT = path.join(__dirname, "..");
 const STATE_PATH = path.join(app.getPath("userData"), "widget-window-state.json");
 const DEFAULT_BOUNDS = { width: 1200, height: 360 };
