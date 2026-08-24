@@ -5,6 +5,7 @@
 appId: com.memotemps.widget
 productName: Mémo Temps Widget
 asar: true
+publish: null
 files:
   - desktop/**/*
   - index.html

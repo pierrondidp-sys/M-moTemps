@@ -23,6 +23,7 @@
     "appId": "com.memotemps.desktop",
     "productName": "Mémo Temps",
     "asar": true,
+    "publish": null,
     "files": [
       "desktop/**/*",
       "index.html",
