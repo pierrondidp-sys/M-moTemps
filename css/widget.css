@@ -1,0 +1,1030 @@
+:root{
+  /* brand accents - constant across themes */
+  --r-blue:#2f9fd0;
+  --r-blue-glow:rgba(47,159,208,.55);
+  --r-green:#8ab52e;
+  --r-green-glow:rgba(138,181,46,.55);
+  --r-green-dark:#5e7d18;
+  --r-red:#b6362a;
+  --r-amber:#e8a33d;
+  --r-amber-glow:rgba(232,163,61,.55);
+
+  /* Marantz hardware finish - aluminium champagne + noyer (walnut) -
+     this is a single fixed hardware look (like a real amplifier's casing
+     doesn't repaint itself), so it stays the same across the light/dark
+     app-theme toggle for now. */
+  --r-alu-light:#efe9dc; --r-alu-mid:#d8cfbc; --r-alu-dark:#b3a789;
+  --r-alu-shadow:#8a7f63; --r-alu-edge:#5f5638;
+  --r-wood-1:#4a2f1a; --r-wood-2:#301c0d; --r-wood-3:#6a4525;
+  --r-dial-face:#efe6c8; --r-dial-face-2:#e2d5ab; --r-dial-glow:#fff7dd;
+
+  --r-page-bg:radial-gradient(120% 90% at 50% -10%, #33302b 0%, #17140f 55%, #0a0906 100%);
+  --r-chassis-1:var(--r-alu-light); --r-chassis-2:var(--r-alu-mid); --r-chassis-3:var(--r-alu-dark);
+  --r-chassis-border:var(--r-alu-edge);
+  --r-glass-top:var(--r-dial-glow); --r-glass-bottom:var(--r-dial-face-2);
+  --r-ink:#2b2416; --r-ink-dim:#6b5f45;
+  --r-panel-line:rgba(60,52,32,.22); --r-panel-line-strong:rgba(60,52,32,.4);
+  --r-recess-bg:var(--r-dial-face-2); --r-recess-shadow:rgba(60,52,32,.35);
+  --r-btn-1:var(--r-alu-light); --r-btn-2:var(--r-alu-dark);
+  --r-overlay:rgba(15,12,8,.6);
+  --r-modal-bg-1:var(--r-alu-light); --r-modal-bg-2:var(--r-alu-mid);
+  --r-shadow-ambient:rgba(10,8,5,.6);
+}
+
+*{box-sizing:border-box;}
+body{margin:0;}
+
+/* Deliberately not a flex/grid container: .mt-widget's percentage width
+   fails to resolve against it reliably (falls back to shrink-to-fit
+   sized on its huge inner timeline content, capped only by max-width -
+   1000px even inside a narrow phone viewport). Plain block layout with
+   margin:auto always resolves width against the containing block. */
+.mt-page{
+  min-height:100vh;
+  padding:40px 16px;
+  background:var(--r-page-bg);
+  font-family:"Helvetica Neue", Arial, sans-serif;
+  color:var(--r-ink);
+}
+
+/* ---------- Desktop widget mode (desktop/widget-main.js, ?mode=widget) ----------
+   Frameless, transparent, always-on-top window: the page must hug the widget
+   exactly (no page padding/background) and the header becomes the window's
+   drag handle, since there's no OS title bar to grab. */
+html.mt-widget-mode,
+html.mt-widget-mode body{
+  background:transparent;
+  margin:0;
+}
+.mt-widget-mode .mt-page{
+  min-height:0;
+  height:100vh;
+  padding:0;
+  background:transparent;
+  display:flex;
+}
+.mt-widget-mode .mt-widget{
+  width:100%;
+  max-width:none;
+  margin:0;
+}
+.mt-widget-mode .mt-header{
+  -webkit-app-region:drag;
+}
+.mt-widget-mode .mt-header-actions,
+.mt-widget-mode .mt-header-actions *{
+  -webkit-app-region:no-drag;
+}
+
+/* ---------- Chassis: aluminium faceplate framed in walnut ---------- */
+.mt-widget{
+  position:relative;
+  width:100%;
+  max-width:min(1500px, 95vw);
+  margin:0 auto;
+  padding:20px 34px;
+  background:
+    /* four exposed screws, inset onto the aluminium (clear of the wood rails) */
+    radial-gradient(circle 7px at 34px 20px, #e9e2d2 0%, #b3a789 55%, #7c714f 72%, transparent 74%),
+    radial-gradient(circle 7px at calc(100% - 34px) 20px, #e9e2d2 0%, #b3a789 55%, #7c714f 72%, transparent 74%),
+    radial-gradient(circle 7px at 34px calc(100% - 20px), #e9e2d2 0%, #b3a789 55%, #7c714f 72%, transparent 74%),
+    radial-gradient(circle 7px at calc(100% - 34px) calc(100% - 20px), #e9e2d2 0%, #b3a789 55%, #7c714f 72%, transparent 74%),
+    /* diagonal light sweep */
+    linear-gradient(115deg, rgba(255,255,255,.28) 0%, rgba(255,255,255,0) 30%, rgba(255,255,255,0) 70%, rgba(255,255,255,.12) 100%),
+    /* horizontal brushed-metal grain */
+    repeating-linear-gradient(0deg, rgba(255,255,255,.10) 0 1px, rgba(120,108,78,.10) 1px 2px),
+    /* base champagne aluminium tone */
+    linear-gradient(180deg, var(--r-chassis-1) 0%, var(--r-chassis-2) 42%, var(--r-chassis-3) 100%);
+  border-radius:8px;
+  border:1px solid var(--r-chassis-border);
+  box-shadow:
+    0 40px 80px -20px rgba(0,0,0,.8),
+    0 1px 0 rgba(255,255,255,.85) inset,
+    0 -2px 6px rgba(95,86,56,.5) inset,
+    0 0 0 1px rgba(95,86,56,.35) inset;
+  overflow:hidden;
+}
+/* walnut side rails, wrapping the aluminium faceplate like a cabinet */
+.mt-widget::before,
+.mt-widget::after{
+  content:"";
+  position:absolute;
+  top:0;
+  bottom:0;
+  width:26px;
+  background:
+    repeating-linear-gradient(91deg, rgba(255,220,170,.06) 0 2px, rgba(0,0,0,.09) 2px 4px),
+    linear-gradient(180deg, var(--r-wood-3) 0%, var(--r-wood-1) 55%, var(--r-wood-2) 100%);
+  box-shadow:inset 0 0 10px rgba(0,0,0,.55);
+  z-index:2;
+}
+.mt-widget::before{left:0;border-right:1px solid var(--r-wood-2);}
+.mt-widget::after{right:0;border-left:1px solid var(--r-wood-2);}
+
+.mt-header{
+  display:flex;
+  align-items:center;
+  gap:16px;
+  padding:2px 4px 16px;
+  border-bottom:1px solid var(--r-alu-shadow);
+  box-shadow:0 1px 0 rgba(255,255,255,.6);
+}
+
+.mt-header-title{
+  display:flex;
+  flex-direction:column;
+  gap:1px;
+  min-width:150px;
+}
+
+.mt-header-title h1{
+  margin:0;
+  font-family:Georgia,"Times New Roman",serif;
+  font-style:italic;
+  font-weight:700;
+  font-size:24px;
+  letter-spacing:.3px;
+  color:var(--r-ink);
+  text-shadow:0 1px 0 rgba(255,255,255,.7);
+}
+
+.mt-header-title .mt-today-label{
+  font-size:9.5px;
+  font-weight:700;
+  letter-spacing:2.2px;
+  text-transform:uppercase;
+  color:var(--r-ink-dim);
+  text-shadow:0 1px 0 rgba(255,255,255,.6);
+}
+
+/* ---------- Flip clock: split-flap dial recessed into the metal ---------- */
+.mt-clock{
+  flex:0 0 auto;
+  display:flex;
+  align-items:center;
+  gap:6px;
+  padding:9px 14px;
+  background:linear-gradient(180deg,#0c0a07,#1a1712);
+  border-radius:6px;
+  box-shadow:
+    0 2px 6px rgba(0,0,0,.7) inset,
+    0 0 0 2px var(--r-alu-dark),
+    0 0 0 3px rgba(95,86,56,.6);
+}
+.mt-clock-sep{
+  color:var(--r-amber);
+  font-size:20px;
+  font-weight:700;
+  line-height:1;
+  padding-bottom:2px;
+  text-shadow:0 0 6px var(--r-amber-glow);
+  animation:mtColonBlink 1s steps(1) infinite;
+}
+@keyframes mtColonBlink{50%{opacity:.3;}}
+
+.mt-flip{
+  position:relative;
+  width:30px;
+  height:40px;
+  perspective:200px;
+  font-family:"Helvetica Neue", Arial, sans-serif;
+}
+.mt-flip-static,
+.mt-flip-leaf{
+  position:absolute;
+  left:0;
+  right:0;
+  height:50%;
+  overflow:hidden;
+  display:flex;
+  justify-content:center;
+  background:linear-gradient(180deg,#3a362f 0%,#2a2721 49.5%,#201d18 50.5%,#15130f 100%);
+  color:#f4f1e8;
+  font-size:22px;
+  font-weight:700;
+  font-variant-numeric:tabular-nums;
+  text-shadow:0 1px 2px rgba(0,0,0,.8);
+}
+.mt-flip-static-top,
+.mt-flip-leaf-top{
+  top:0;
+  border-radius:4px 4px 0 0;
+  align-items:flex-end;
+}
+.mt-flip-static-top span,
+.mt-flip-leaf-top span{transform:translateY(50%);}
+.mt-flip-static-bottom,
+.mt-flip-leaf-bottom{
+  bottom:0;
+  border-radius:0 0 4px 4px;
+  align-items:flex-start;
+}
+.mt-flip-static-bottom span,
+.mt-flip-leaf-bottom span{transform:translateY(-50%);}
+
+.mt-flip-leaf{
+  transform-style:preserve-3d;
+  backface-visibility:hidden;
+  z-index:5;
+}
+/* Resting (non-animating) position of each leaf must match the angle its
+   own animation ends on - otherwise, the instant "is-flipping" is removed
+   at the end of a flip, the leaf snaps back to its unstyled default
+   (rotateX(0), i.e. flat/covering) instead of staying out of the way,
+   popping the stale old value it still holds back over the correct one. */
+.mt-flip-leaf-top{transform-origin:bottom center;transform:rotateX(-90deg);}
+.mt-flip-leaf-bottom{transform-origin:top center;transform:rotateX(90deg);}
+
+.mt-flip-seam{
+  position:absolute;
+  left:0;right:0;top:50%;
+  height:2px;
+  transform:translateY(-1px);
+  background:linear-gradient(180deg,rgba(0,0,0,.7),rgba(255,255,255,.06));
+  z-index:6;
+}
+
+.mt-flip.is-flipping .mt-flip-leaf-top{animation:mtFlipTop .3s cubic-bezier(.4,0,.6,1) forwards;}
+.mt-flip.is-flipping .mt-flip-leaf-bottom{animation:mtFlipBottom .3s cubic-bezier(.4,0,.6,1) .3s forwards;}
+@keyframes mtFlipTop{from{transform:rotateX(0deg);}to{transform:rotateX(-90deg);}}
+@keyframes mtFlipBottom{from{transform:rotateX(90deg);}to{transform:rotateX(0deg);}}
+
+@media (prefers-reduced-motion: reduce){
+  .mt-flip.is-flipping .mt-flip-leaf-top,
+  .mt-flip.is-flipping .mt-flip-leaf-bottom{animation:none;}
+  .mt-clock-sep{animation:none;}
+}
+
+.mt-legend{
+  flex:1 1 auto;
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  justify-content:center;
+  gap:8px;
+  font-size:10px;
+  letter-spacing:2px;
+  text-transform:uppercase;
+  color:var(--r-ink-dim);
+  text-shadow:0 1px 0 rgba(255,255,255,.6);
+}
+.mt-legend span{display:inline-flex;align-items:center;gap:8px;}
+.mt-legend .mt-dot{width:9px;height:9px;border-radius:50%;display:inline-block;}
+.mt-legend .mt-dot.objectif{background:radial-gradient(circle at 35% 30%,#c9f26a,var(--r-green) 60%,var(--r-green-dark));box-shadow:0 0 6px var(--r-green),0 0 0 1px rgba(0,0,0,.3);}
+.mt-legend .mt-dot.rdv{background:radial-gradient(circle at 35% 30%,#a9e6ff,var(--r-blue) 60%,#1c6f96);box-shadow:0 0 6px var(--r-blue),0 0 0 1px rgba(0,0,0,.3);}
+
+/* recessed aluminium bank holding the day button + all icon switches */
+.mt-header-actions{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:8px;
+  row-gap:8px;
+  padding:7px 9px;
+  border-radius:6px;
+  background:linear-gradient(180deg,#c3b998,#d5cbad);
+  box-shadow:
+    0 2px 5px rgba(60,52,32,.5) inset,
+    0 -1px 2px rgba(255,255,255,.5) inset,
+    0 1px 0 rgba(255,255,255,.5);
+}
+
+.mt-today-btn{
+  border:none;
+  border-radius:4px;
+  background:linear-gradient(180deg,var(--r-alu-light),var(--r-alu-dark));
+  color:var(--r-ink);
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:1.5px;
+  text-transform:uppercase;
+  padding:10px 14px;
+  cursor:pointer;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.9) inset,
+    0 -2px 3px rgba(95,86,56,.4) inset,
+    0 2px 4px rgba(0,0,0,.3),
+    0 0 0 1px rgba(95,86,56,.5);
+  text-shadow:0 1px 0 rgba(255,255,255,.6);
+  transition:transform .05s, box-shadow .15s ease;
+}
+.mt-today-btn:hover{box-shadow:
+    0 1px 0 rgba(255,255,255,.9) inset,
+    0 -2px 3px rgba(95,86,56,.4) inset,
+    0 2px 4px rgba(0,0,0,.3),
+    0 0 0 1px rgba(95,86,56,.5),
+    0 0 8px var(--r-amber-glow);}
+.mt-today-btn:active{transform:translateY(1px);}
+
+.mt-icon-btn{
+  position:relative;
+  flex:0 0 auto;
+  width:38px;
+  height:38px;
+  border-radius:5px;
+  border:none;
+  background:linear-gradient(180deg,#f1ebde 0%,#d3c9ac 48%,#ab9f7d 100%);
+  color:var(--r-ink-dim);
+  font-size:15px;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.9) inset,
+    0 -2px 4px rgba(60,52,32,.45) inset,
+    2px 0 3px rgba(60,52,32,.25) inset,
+    -2px 0 3px rgba(255,255,255,.4) inset,
+    0 2px 4px rgba(0,0,0,.35),
+    0 0 0 1px rgba(95,86,56,.55);
+  transition:transform .05s, box-shadow .15s ease;
+}
+.mt-icon-btn::after{
+  content:"";
+  position:absolute;
+  bottom:3px;
+  right:3px;
+  width:6px;
+  height:6px;
+  border-radius:50%;
+  background:var(--r-alu-shadow);
+  box-shadow:0 0 0 1px rgba(0,0,0,.25) inset;
+}
+.mt-icon-btn:hover{box-shadow:
+    0 1px 0 rgba(255,255,255,.9) inset,
+    0 -2px 4px rgba(60,52,32,.45) inset,
+    2px 0 3px rgba(60,52,32,.25) inset,
+    -2px 0 3px rgba(255,255,255,.4) inset,
+    0 2px 4px rgba(0,0,0,.35),
+    0 0 0 1px rgba(95,86,56,.55),
+    0 0 10px var(--r-amber-glow);}
+.mt-icon-btn:active{transform:translateY(1px);}
+.mt-sound-btn[aria-pressed="false"]{opacity:.55;}
+.mt-outlook-btn.is-connected,
+.mt-drive-btn.is-connected{box-shadow:
+    0 1px 0 rgba(255,255,255,.9) inset,
+    0 -2px 4px rgba(60,52,32,.45) inset,
+    0 2px 4px rgba(0,0,0,.35),
+    0 0 0 1px var(--r-green-dark),
+    0 0 10px var(--r-green-glow);}
+.mt-outlook-btn.is-connected::after,
+.mt-drive-btn.is-connected::after{
+  background:radial-gradient(circle at 35% 30%,#c9f26a,var(--r-green) 60%,var(--r-green-dark));
+  box-shadow:0 0 6px var(--r-green);
+}
+/* Last sync attempt failed - visible even when a stale "connected" ring
+   would otherwise suggest everything is fine, so a silent background
+   failure doesn't go unnoticed until the user manually reopens Drive
+   settings. */
+.mt-drive-btn.has-sync-warning{box-shadow:
+    0 1px 0 rgba(255,255,255,.9) inset,
+    0 -2px 4px rgba(60,52,32,.45) inset,
+    0 2px 4px rgba(0,0,0,.35),
+    0 0 0 1px var(--r-red),
+    0 0 10px rgba(182,54,42,.55);}
+.mt-drive-btn.has-sync-warning::after{
+  background:radial-gradient(circle at 35% 30%,#ff8f82,var(--r-red));
+  box-shadow:0 0 6px var(--r-red);
+}
+
+.mt-add-btn{
+  flex:0 0 auto;
+  width:46px;
+  height:46px;
+  border-radius:50%;
+  border:none;
+  background:radial-gradient(circle at 38% 30%, #f4eeda 0%, #d8c98f 45%, #9a854d 95%);
+  color:#3f3413;
+  font-size:22px;
+  font-weight:700;
+  line-height:1;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.9) inset,
+    0 -2px 4px rgba(60,52,32,.5) inset,
+    0 2px 4px rgba(0,0,0,.35),
+    0 0 0 1px rgba(95,86,56,.55);
+  transition:transform .05s, box-shadow .15s ease;
+  text-shadow:0 1px 0 rgba(255,255,255,.5);
+}
+.mt-add-btn:hover{box-shadow:
+    0 1px 0 rgba(255,255,255,.9) inset,
+    0 -2px 4px rgba(60,52,32,.5) inset,
+    0 2px 4px rgba(0,0,0,.35),
+    0 0 0 1px rgba(95,86,56,.55),
+    0 0 14px var(--r-amber-glow);}
+.mt-add-btn:active{transform:scale(.96);}
+
+/* ---------- Timeline / VU-meter dial ---------- */
+.mt-timeline{
+  position:relative;
+  display:flex;
+  align-items:stretch;
+  padding:16px 4px 22px;
+  gap:14px;
+}
+/* backlight halo + glass reflet over the dial, and the amber underglow
+   beneath the whole timeline - both live on .mt-timeline (not inside the
+   scrolling .mt-viewport) so they stay fixed instead of scrolling away
+   with the hour ribbon, the same trick .mt-now-line already relies on. */
+.mt-timeline::before{
+  content:"";
+  position:absolute;
+  left:48px;right:48px;top:16px;bottom:22px;
+  border-radius:6px;
+  pointer-events:none;
+  z-index:3;
+  background:
+    linear-gradient(160deg, rgba(255,255,255,.35) 0%, transparent 22%),
+    radial-gradient(120% 80% at 50% 0%, rgba(255,247,221,.55), transparent 60%);
+}
+.mt-timeline::after{
+  content:"";
+  position:absolute;
+  left:52px;right:52px;bottom:2px;
+  height:3px;
+  border-radius:2px;
+  pointer-events:none;
+  background:linear-gradient(90deg,transparent,var(--r-amber-glow),transparent);
+  box-shadow:0 0 10px var(--r-amber-glow);
+}
+
+.mt-arrow{
+  flex:0 0 auto;
+  width:34px;
+  align-self:stretch;
+  border:none;
+  border-radius:6px;
+  background:linear-gradient(180deg,#eee7d9,#c4ba9d);
+  color:var(--r-ink);
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:18px;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.8) inset,
+    0 -2px 3px rgba(95,86,56,.4) inset,
+    0 2px 4px rgba(0,0,0,.3),
+    0 0 0 1px rgba(95,86,56,.5);
+  text-shadow:0 1px 0 rgba(255,255,255,.5);
+  transition:transform .05s, box-shadow .15s ease;
+}
+.mt-arrow:hover{box-shadow:
+    0 1px 0 rgba(255,255,255,.8) inset,
+    0 -2px 3px rgba(95,86,56,.4) inset,
+    0 2px 4px rgba(0,0,0,.3),
+    0 0 0 1px rgba(95,86,56,.5),
+    0 0 10px var(--r-amber-glow);}
+.mt-arrow:active{transform:translateY(1px);}
+
+.mt-arrow:focus-visible,
+.mt-today-btn:focus-visible,
+.mt-icon-btn:focus-visible,
+.mt-add-btn:focus-visible,
+.mt-dp-nav:focus-visible,
+.mt-dp-day:focus-visible,
+.mt-event:focus-visible{
+  outline:2px solid var(--r-amber);
+  outline-offset:2px;
+}
+
+.mt-viewport{
+  flex:1 1 auto;
+  overflow-x:auto;
+  overflow-y:hidden;
+  scroll-behavior:smooth;
+  cursor:grab;
+  border-radius:6px;
+  box-shadow:
+    0 3px 8px rgba(0,0,0,.5) inset,
+    0 0 0 2px var(--r-alu-dark),
+    0 0 0 3px rgba(95,86,56,.55);
+  scrollbar-width:thin;
+  scrollbar-color:var(--r-panel-line-strong) transparent;
+}
+.mt-viewport.mt-dragging{cursor:grabbing;scroll-behavior:auto;}
+.mt-viewport::-webkit-scrollbar{height:8px;}
+.mt-viewport::-webkit-scrollbar-thumb{background:var(--r-panel-line-strong);border-radius:8px;}
+.mt-viewport::-webkit-scrollbar-track{background:transparent;}
+
+.mt-content{
+  position:relative;
+  height:100%;
+  background:linear-gradient(180deg, var(--r-glass-top) 0%, var(--r-glass-bottom) 100%);
+}
+
+.mt-day-block{
+  position:absolute;
+  top:0;
+  bottom:0;
+  border-right:1px solid var(--r-panel-line);
+}
+.mt-day-block:last-child{border-right:none;}
+.mt-day-block.is-weekend{background:rgba(60,52,32,.06);}
+.mt-day-block.is-today{background:rgba(232,163,61,.10);}
+
+.mt-day-header{
+  position:sticky;
+  top:0;
+  height:34px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  font-size:10.5px;
+  font-weight:700;
+  letter-spacing:1.2px;
+  text-transform:uppercase;
+  color:var(--r-ink-dim);
+  border-bottom:1px solid var(--r-panel-line);
+  background:inherit;
+  user-select:none;
+}
+.mt-day-block.is-today .mt-day-header{color:var(--r-ink);text-shadow:0 0 8px var(--r-amber-glow);}
+.mt-day-header .mt-day-dot{width:6px;height:6px;border-radius:50%;background:var(--r-amber);box-shadow:0 0 8px var(--r-amber-glow);}
+
+.mt-hour-tick{
+  position:absolute;
+  top:34px;
+  bottom:0;
+  width:1px;
+  background:var(--r-panel-line);
+}
+.mt-hour-tick.major{background:var(--r-panel-line-strong);}
+.mt-hour-label{
+  position:absolute;
+  top:36px;
+  font-size:10px;
+  font-weight:700;
+  font-variant-numeric:tabular-nums;
+  color:var(--r-ink-dim);
+  transform:translateX(4px);
+  user-select:none;
+}
+
+/* Fixed "VU needle" - lives outside .mt-viewport (a sibling in
+   .mt-timeline) so it never scrolls with the content; the hour ribbon
+   scrolls underneath it instead, centered on the current time. */
+.mt-now-line{
+  position:absolute;
+  left:50%;
+  transform:translateX(-50%);
+  top:50px;
+  bottom:22px;
+  width:2px;
+  z-index:5;
+  background:linear-gradient(180deg,var(--r-red),#e0574a);
+  box-shadow:0 0 8px rgba(182,54,42,.7);
+  pointer-events:none;
+}
+.mt-now-line::before{
+  content:"";
+  position:absolute;
+  top:-5px;
+  left:50%;
+  transform:translateX(-50%);
+  width:11px;
+  height:11px;
+  border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,#ff8f82,var(--r-red));
+  box-shadow:0 0 8px rgba(182,54,42,.9);
+}
+
+.mt-events-layer{
+  position:absolute;
+  left:0;
+  right:0;
+  top:58px;
+}
+
+.mt-event{
+  position:absolute;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  height:36px;
+  border-radius:20px;
+  padding:0 8px 0 13px;
+  font-size:13px;
+  font-weight:800;
+  cursor:pointer;
+  border:none;
+  transition:transform .12s ease, box-shadow .12s ease;
+  z-index:4;
+}
+.mt-event:hover{transform:translateY(-1px) scale(1.015);z-index:5;}
+.mt-event.cat-objectif{
+  background:linear-gradient(180deg,#a6d63f,var(--r-green) 55%,var(--r-green-dark));
+  color:#33420f;
+  text-shadow:0 1px 0 rgba(255,255,255,.3);
+  box-shadow:0 3px 6px rgba(0,0,0,.35), 0 1px 0 rgba(255,255,255,.5) inset, 0 -2px 4px rgba(60,80,10,.5) inset;
+}
+.mt-event.cat-rdv{
+  background:linear-gradient(180deg,#7fc7e8,var(--r-blue) 55%,#1c6f96);
+  color:#0d3346;
+  text-shadow:0 1px 0 rgba(255,255,255,.3);
+  box-shadow:0 3px 6px rgba(0,0,0,.35), 0 1px 0 rgba(255,255,255,.5) inset, 0 -2px 4px rgba(10,50,65,.5) inset;
+}
+.mt-event.is-done{opacity:.45;text-decoration:line-through;}
+.mt-event.is-external{
+  border:1px dashed rgba(255,255,255,.65);
+  background-image:repeating-linear-gradient(135deg, rgba(255,255,255,.15) 0 6px, transparent 6px 12px);
+}
+
+.mt-event.is-point{
+  padding:0 8px 0 10px;
+}
+.mt-event .mt-event-time{
+  flex:0 0 auto;
+  font-weight:800;
+  opacity:.85;
+  font-size:12px;
+  font-variant-numeric:tabular-nums;
+}
+.mt-event .mt-event-title{
+  flex:1 1 auto;
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.mt-event-speak{
+  flex:0 0 auto;
+  width:22px;
+  height:22px;
+  border-radius:50%;
+  border:none;
+  background:rgba(0,0,0,.22);
+  color:inherit;
+  font-size:12px;
+  line-height:1;
+  padding:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  box-shadow:0 1px 2px rgba(0,0,0,.4) inset, 0 0 0 1px rgba(0,0,0,.15);
+  transition:background .12s ease;
+}
+.mt-event-speak:hover{background:rgba(0,0,0,.38);}
+.mt-event-speak:focus-visible{outline:2px solid var(--r-ink);outline-offset:1px;}
+
+/* ---------- Modal ---------- */
+.mt-modal-overlay{
+  position:fixed;
+  inset:0;
+  background:var(--r-overlay);
+  backdrop-filter:blur(2px);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:50;
+  padding:16px;
+  animation:mtFade .15s ease;
+}
+@keyframes mtFade{from{opacity:0;}to{opacity:1;}}
+
+/* Capped below the viewport height with its own scrollbar, so the window
+   is always fully reachable no matter how small the screen (or how tall
+   the form) is - the fixed overlay can no longer trap content above or
+   below what's visible. is-expanded (toggled by the zoom button injected
+   by enhanceModal() in widget.js) swaps in a larger reading size. */
+.mt-modal{
+  position:relative;
+  width:100%;
+  max-width:420px;
+  max-height:min(560px, 88vh);
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  background:linear-gradient(180deg,var(--r-modal-bg-1),var(--r-modal-bg-2));
+  border:1px solid var(--r-chassis-border);
+  border-radius:10px;
+  box-shadow:0 24px 60px var(--r-shadow-ambient), inset 0 1px 0 rgba(255,255,255,.4);
+  padding:22px 22px 18px;
+  animation:mtPop .18s ease;
+  transition:max-width .2s ease, max-height .2s ease;
+  scrollbar-width:thin;
+  scrollbar-color:var(--r-panel-line-strong) transparent;
+}
+.mt-modal::-webkit-scrollbar{width:8px;}
+.mt-modal::-webkit-scrollbar-thumb{background:var(--r-panel-line-strong);border-radius:8px;}
+.mt-modal::-webkit-scrollbar-track{background:transparent;}
+.mt-modal.is-expanded{
+  max-width:min(720px, 94vw);
+  max-height:94vh;
+}
+@keyframes mtPop{from{transform:translateY(8px) scale(.98);opacity:0;}to{transform:none;opacity:1;}}
+
+.mt-modal h2{
+  margin:0 0 16px;
+  font-family:Georgia,"Times New Roman",serif;
+  font-style:italic;
+  font-size:17px;
+  font-weight:700;
+  color:var(--r-ink);
+  text-shadow:0 1px 0 rgba(255,255,255,.6);
+}
+.mt-modal:has(.mt-modal-zoom-btn) h2{padding-right:34px;}
+
+.mt-modal-zoom-btn{
+  position:absolute;
+  top:14px;
+  right:14px;
+  width:28px;
+  height:28px;
+  border-radius:50%;
+  border:none;
+  background:var(--r-recess-bg);
+  color:var(--r-ink-dim);
+  font-size:13px;
+  line-height:1;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  box-shadow:inset 0 1px 3px var(--r-recess-shadow);
+  transition:.15s ease;
+}
+.mt-modal-zoom-btn:hover{color:var(--r-ink);box-shadow:inset 0 1px 3px var(--r-recess-shadow), 0 0 0 1px var(--r-amber);}
+.mt-modal-zoom-btn:focus-visible{outline:2px solid var(--r-amber);outline-offset:2px;}
+
+.mt-field{margin-bottom:14px;}
+.mt-field > div{font-size:13.5px;color:var(--r-ink);}
+.mt-readonly-note{
+  font-size:11.5px;
+  color:var(--r-ink-dim);
+  font-style:italic;
+  margin:4px 0 14px;
+}
+.mt-outlook-error{
+  font-size:12px;
+  color:var(--r-red);
+  margin:-6px 0 14px;
+}
+.mt-backup-status{
+  font-size:12px;
+  color:var(--r-green-dark);
+  margin:-6px 0 14px;
+}
+.mt-backup-status.is-error{color:var(--r-red);}
+.mt-field input[type="file"]{
+  width:100%;
+  font-size:12.5px;
+  color:var(--r-ink);
+}
+.mt-field label{
+  display:block;
+  font-size:10px;
+  font-weight:700;
+  letter-spacing:1.3px;
+  text-transform:uppercase;
+  color:var(--r-ink-dim);
+  margin-bottom:7px;
+}
+.mt-field input[type="text"],
+.mt-field input[type="date"],
+.mt-field input[type="time"],
+.mt-field textarea{
+  width:100%;
+  border:none;
+  border-radius:5px;
+  padding:9px 11px;
+  font-size:13.5px;
+  color:var(--r-ink);
+  background:var(--r-recess-bg);
+  font-family:inherit;
+  box-shadow:inset 0 2px 5px var(--r-recess-shadow);
+  color-scheme:light;
+}
+.mt-field input::placeholder,
+.mt-field textarea::placeholder{color:var(--r-ink-dim);opacity:.7;}
+.mt-field input:focus,
+.mt-field textarea:focus{
+  outline:none;
+  box-shadow:inset 0 2px 5px var(--r-recess-shadow), 0 0 0 2px var(--r-amber);
+}
+.mt-field textarea{resize:vertical;min-height:56px;}
+
+.mt-row{display:flex;gap:12px;}
+.mt-row .mt-field{flex:1;}
+
+.mt-type-choice{display:flex;gap:8px;}
+.mt-type-choice label{
+  flex:1;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  border:1px solid transparent;
+  border-radius:5px;
+  padding:9px 6px;
+  font-size:11.5px;
+  font-weight:700;
+  letter-spacing:.4px;
+  text-transform:uppercase;
+  color:var(--r-ink-dim);
+  background:var(--r-recess-bg);
+  cursor:pointer;
+  box-shadow:inset 0 1px 3px var(--r-recess-shadow);
+  transition:.12s ease;
+}
+.mt-type-choice input{display:none;}
+.mt-type-choice .mt-dot{width:8px;height:8px;border-radius:50%;}
+.mt-type-choice .mt-dot.objectif{background:var(--r-green);box-shadow:0 0 6px var(--r-green-glow);}
+.mt-type-choice .mt-dot.rdv{background:var(--r-blue);box-shadow:0 0 6px var(--r-blue-glow);}
+.mt-type-choice label:has(input:checked){border-color:var(--r-amber);color:var(--r-ink);box-shadow:inset 0 1px 3px var(--r-recess-shadow), 0 0 8px var(--r-amber-glow);}
+
+.mt-modal-actions{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-top:18px;
+  gap:8px;
+}
+
+.mt-btn{
+  border:none;
+  border-radius:5px;
+  padding:10px 16px;
+  font-size:11.5px;
+  font-weight:700;
+  letter-spacing:.8px;
+  text-transform:uppercase;
+  cursor:pointer;
+  transition:.12s ease;
+}
+.mt-btn-primary{background:radial-gradient(circle at 38% 30%, #f4eeda 0%, #d8c98f 45%, #9a854d 95%);color:#3f3413;box-shadow:0 0 10px var(--r-amber-glow);}
+.mt-btn-primary:hover{filter:brightness(1.06);}
+.mt-btn-ghost{background:var(--r-recess-bg);color:var(--r-ink-dim);}
+.mt-btn-ghost:hover{color:var(--r-ink);}
+.mt-btn-danger{background:var(--r-recess-bg);color:var(--r-red);}
+.mt-btn-danger:hover{box-shadow:0 0 10px rgba(182,54,42,.35);}
+
+.mt-modal-actions-left{display:flex;gap:8px;}
+
+/* ---------- Date picker ---------- */
+.mt-dp-quick{display:flex;gap:8px;margin-bottom:18px;}
+.mt-dp-quick .mt-btn{flex:1;}
+
+.mt-dp-cal-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom:10px;
+}
+.mt-dp-month{
+  flex:1;
+  text-align:center;
+  font-size:12.5px;
+  font-weight:700;
+  letter-spacing:.5px;
+  text-transform:capitalize;
+  color:var(--r-ink);
+}
+.mt-dp-nav{
+  flex:0 0 auto;
+  width:26px;
+  height:26px;
+  border-radius:50%;
+  border:none;
+  background:var(--r-recess-bg);
+  color:var(--r-ink-dim);
+  font-size:14px;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  transition:.15s ease;
+}
+.mt-dp-nav:hover{color:var(--r-ink);box-shadow:0 0 0 1px var(--r-amber);}
+
+.mt-dp-weekdays{
+  display:grid;
+  grid-template-columns:repeat(7,1fr);
+  text-align:center;
+  font-size:9.5px;
+  font-weight:700;
+  letter-spacing:1px;
+  text-transform:uppercase;
+  color:var(--r-ink-dim);
+  margin-bottom:6px;
+}
+
+.mt-dp-grid{
+  display:grid;
+  grid-template-columns:repeat(7,1fr);
+  gap:4px;
+  margin-bottom:18px;
+}
+
+.mt-dp-day{
+  width:100%;
+  aspect-ratio:1;
+  border:1px solid transparent;
+  border-radius:50%;
+  background:transparent;
+  color:var(--r-ink);
+  font-size:12.5px;
+  font-variant-numeric:tabular-nums;
+  cursor:pointer;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:2px;
+  transition:.12s ease;
+}
+.mt-dp-day-num{line-height:1;}
+/* Always reserve this row's height (even with no dots in it) so the day
+   number sits at the same vertical position in every cell, whether or
+   not that date has an event. */
+.mt-dp-day-dots{display:flex;align-items:center;justify-content:center;gap:2px;height:4px;}
+.mt-dp-dot{width:4px;height:4px;border-radius:50%;flex:0 0 auto;}
+.mt-dp-dot.objectif{background:var(--r-green);box-shadow:0 0 3px var(--r-green-glow);}
+.mt-dp-dot.rdv{background:var(--r-blue);box-shadow:0 0 3px var(--r-blue-glow);}
+.mt-dp-day.is-outside{visibility:hidden;cursor:default;}
+.mt-dp-day:not(.is-outside):not(.is-disabled):hover{border-color:var(--r-amber);color:var(--r-ink);}
+.mt-dp-day.is-today{border-color:var(--r-amber);color:var(--r-ink);font-weight:700;}
+.mt-dp-day.is-viewed{background:var(--r-amber);color:#3f3413;border-color:var(--r-amber);font-weight:700;}
+.mt-dp-day.is-disabled{opacity:.3;cursor:not-allowed;}
+
+/* ---------- Reminder (blinking bulb replacing the brand plate) ---------- */
+.mt-header-title.is-reminder{
+  flex-direction:row;
+  align-items:center;
+  background:linear-gradient(180deg,#fff6d6,#ffe28f);
+  border-radius:5px;
+  padding:6px 12px;
+  box-shadow:0 2px 3px rgba(0,0,0,.25), inset 0 0 0 1px rgba(0,0,0,.06), inset 0 1px 0 rgba(255,255,255,.7);
+  animation:mtBulbPlateGlow 1s ease-in-out infinite alternate;
+}
+@keyframes mtBulbPlateGlow{
+  from{box-shadow:0 2px 3px rgba(0,0,0,.25), inset 0 0 0 1px rgba(0,0,0,.06), inset 0 1px 0 rgba(255,255,255,.7);}
+  to{box-shadow:0 2px 3px rgba(0,0,0,.25), inset 0 0 0 1px rgba(0,0,0,.06), inset 0 1px 0 rgba(255,255,255,.7), 0 0 16px 2px rgba(255,196,0,.65);}
+}
+
+.mt-bulb-reminder{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  cursor:pointer;
+}
+.mt-bulb-reminder:focus-visible{outline:2px solid #8a6400;outline-offset:2px;border-radius:4px;}
+
+.mt-bulb-figure{
+  flex:0 0 auto;
+  width:26px;
+  height:26px;
+  animation:mtBulbBlink .9s steps(1) infinite;
+}
+.mt-bulb-svg{width:100%;height:100%;display:block;overflow:visible;}
+.mt-bulb-svg .mt-bulb-glass{fill:#ffe14d;stroke:#caa200;stroke-width:2;}
+.mt-bulb-svg .mt-bulb-filament{fill:none;stroke:#b5790a;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;}
+.mt-bulb-svg .mt-bulb-base,
+.mt-bulb-svg .mt-bulb-cap{fill:#8a8f93;stroke:#5c6266;stroke-width:1;}
+.mt-bulb-svg .mt-bulb-rays line{stroke:#f0b400;stroke-width:2.5;stroke-linecap:round;}
+
+@keyframes mtBulbBlink{
+  0%,49%{opacity:1;filter:drop-shadow(0 0 6px rgba(255,196,0,.9));}
+  50%,100%{opacity:.3;filter:none;}
+}
+
+.mt-bulb-text{
+  display:flex;
+  flex-direction:column;
+  gap:1px;
+  text-align:left;
+}
+.mt-bulb-text strong{
+  font-size:12px;
+  font-weight:700;
+  color:#7a5b00;
+  line-height:1.2;
+  max-width:130px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.mt-bulb-text span{
+  font-size:9.5px;
+  font-weight:700;
+  letter-spacing:1.2px;
+  text-transform:uppercase;
+  color:#9c7a1f;
+}
+
+@media (prefers-reduced-motion: reduce){
+  .mt-event,.mt-arrow,.mt-add-btn,.mt-icon-btn,.mt-btn,.mt-today-btn,.mt-viewport,.mt-content,.mt-modal{transition:none;}
+  .mt-modal-overlay,.mt-modal{animation:none;}
+  .mt-header-title.is-reminder{animation:none;box-shadow:0 2px 3px rgba(0,0,0,.25), inset 0 0 0 1px rgba(0,0,0,.06), inset 0 1px 0 rgba(255,255,255,.7), 0 0 16px 2px rgba(255,196,0,.65);}
+  .mt-bulb-figure{animation:none;opacity:1;filter:drop-shadow(0 0 6px rgba(255,196,0,.9));}
+}
+
+@media (max-width:640px){
+  .mt-header{flex-direction:column;align-items:flex-start;gap:12px;}
+  .mt-legend{order:3;justify-content:flex-start;}
+}

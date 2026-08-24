@@ -1,0 +1,51 @@
+{
+  "name": "memo-temps",
+  "version": "1.0.0",
+  "description": "Mémo Temps — application de bureau (Marantz Edition)",
+  "private": true,
+  "main": "desktop/main.js",
+  "scripts": {
+    "start": "electron .",
+    "start:widget": "electron desktop/widget-main.js",
+    "dist:win": "electron-builder --win nsis",
+    "dist:win:widget": "electron-builder --win nsis --config electron-builder.widget.yml",
+    "send-reminders": "node scripts/send-reminders.mjs"
+  },
+  "dependencies": {
+    "google-auth-library": "^9.15.1",
+    "nodemailer": "^6.9.16"
+  },
+  "devDependencies": {
+    "electron": "^37.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.memotemps.desktop",
+    "productName": "Mémo Temps",
+    "asar": true,
+    "files": [
+      "desktop/**/*",
+      "index.html",
+      "manifest.json",
+      "sw.js",
+      "css/**/*",
+      "js/**/*",
+      "icons/**/*"
+    ],
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "win": {
+      "target": ["nsis"],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Frise chronologique jour/heure pour vos objectifs et rendez-vous du jour.">
+<meta name="theme-color" content="#4a2f1a">
+<title>Mémo Temps — Frise du jour</title>
+<script>
+  // Set by desktop/widget-main.js (?mode=widget): switches to a compact,
+  // borderless layout that hugs the widget instead of filling a full page.
+  if (new URLSearchParams(location.search).get("mode") === "widget") {
+    document.documentElement.classList.add("mt-widget-mode");
+  }
+</script>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="icons/icon-16.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="css/widget.css">
+</head>
+<body>
+
+  <main class="mt-page">
+    <div id="mt-widget-root"></div>
+  </main>
+
+  <script src="js/widget.js"></script>
+  <script src="js/outlook.js"></script>
+  <script src="js/drive.js"></script>
+  <script src="js/flipclock.js"></script>
+  <script src="js/backup.js"></script>
+  <script src="js/reminder.js"></script>
+  <script>
+    window.mtWidget = new MemoTempsWidget(document.getElementById('mt-widget-root'));
+    MemoTempsOutlook.attach(window.mtWidget);
+    MemoTempsDrive.attach(window.mtWidget);
+    MemoTempsFlipClock.mount(document.querySelector('.mt-header'));
+    MemoTempsBackup.attach(window.mtWidget);
+
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch(() => {});
+      });
+    }
+  </script>
+</body>
+</html>
