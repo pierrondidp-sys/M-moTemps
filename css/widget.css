@@ -58,10 +58,8 @@ html.mt-widget-mode body{
 }
 .mt-widget-mode .mt-page{
   min-height:0;
-  height:100vh;
   padding:0;
   background:transparent;
-  display:flex;
 }
 .mt-widget-mode .mt-widget{
   width:100%;

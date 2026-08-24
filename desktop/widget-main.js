@@ -44,11 +44,35 @@ function boundsAreOnScreen(bounds) {
 
 function resetPosition() {
   if (!widgetWindow) return;
+  const [width, height] = widgetWindow.getContentSize();
   const { workArea } = screen.getPrimaryDisplay();
-  const x = Math.round(workArea.x + (workArea.width - DEFAULT_BOUNDS.width) / 2);
+  const x = Math.round(workArea.x + (workArea.width - width) / 2);
   const y = Math.round(workArea.y + 40);
-  widgetWindow.setBounds({ x, y, ...DEFAULT_BOUNDS });
+  widgetWindow.setPosition(x, y);
   saveWindowState();
+}
+
+// On a fresh install (no remembered size yet), DEFAULT_BOUNDS.height is only
+// a guess - it rarely matches the widget's real rendered height exactly,
+// which leaves either clipped content or a dead transparent strip below it
+// (the window is see-through, so that strip shows the desktop underneath).
+// Measure the actual content once after first load and snap the window's
+// height to it; width is left alone since the widget deliberately fills
+// whatever width it's given (see widget.css's width:100% comment).
+async function fitHeightToContent() {
+  if (!widgetWindow) return;
+  try {
+    const height = await widgetWindow.webContents.executeJavaScript(
+      `Math.ceil(document.querySelector(".mt-widget").getBoundingClientRect().height)`
+    );
+    if (Number.isFinite(height) && height > 0) {
+      const [width] = widgetWindow.getContentSize();
+      widgetWindow.setContentSize(width, Math.min(Math.max(height, 200), 900));
+    }
+  } catch {
+    // Best effort - worst case the window keeps its guessed default height.
+  }
+  resetPosition();
 }
 
 async function createWindow() {
@@ -79,10 +103,18 @@ async function createWindow() {
     }
   });
 
-  if (!bounds) resetPosition();
-
   widgetWindow.loadURL(`http://127.0.0.1:${PORT}/index.html?mode=widget`);
-  widgetWindow.once("ready-to-show", () => widgetWindow.show());
+
+  if (bounds) {
+    widgetWindow.once("ready-to-show", () => widgetWindow.show());
+  } else {
+    // First launch: size to the widget's real content instead of the guess.
+    widgetWindow.webContents.once("did-finish-load", async () => {
+      await fitHeightToContent();
+      widgetWindow.show();
+    });
+  }
+
   widgetWindow.on("resize", saveWindowState);
   widgetWindow.on("move", saveWindowState);
 
