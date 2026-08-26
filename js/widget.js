@@ -768,6 +768,7 @@
         </div>
       `;
       document.body.appendChild(overlay);
+      window.dispatchEvent(new CustomEvent("mt:event-modal-opened", { detail: { overlay } }));
 
       const close = () => { document.removeEventListener("keydown", onKeydown); overlay.remove(); };
       const onKeydown = (e) => { if (e.key === "Escape") close(); };

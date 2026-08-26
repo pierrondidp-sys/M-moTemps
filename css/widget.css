@@ -752,6 +752,19 @@ html.mt-widget-mode body{
 
 .mt-field{margin-bottom:14px;}
 .mt-field > div{font-size:13.5px;color:var(--r-ink);}
+.mt-mic-row{display:flex;align-items:flex-start;gap:6px;}
+.mt-mic-row input,
+.mt-mic-row textarea{flex:1;min-width:0;}
+.mt-mic-btn{width:38px;height:38px;font-size:16px;}
+.mt-mic-btn.is-listening{
+  background:linear-gradient(180deg,#ff8a80 0%,#e6392b 60%,#a8241a 100%);
+  color:#fff;
+  animation:mtMicPulse 1.1s ease-in-out infinite;
+}
+@keyframes mtMicPulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(230,57,43,.55);}
+  50%{box-shadow:0 0 0 8px rgba(230,57,43,0);}
+}
 .mt-readonly-note{
   font-size:11.5px;
   color:var(--r-ink-dim);
