@@ -33,11 +33,15 @@
     return gisLoadPromise;
   }
 
+  // sessionStorage, not localStorage: the ID client OAuth should be
+  // remembered across reconnections (token expiry, disconnect/reconnect,
+  // page reload) without retyping, but forgotten once the app/tab is
+  // actually closed - not kept indefinitely like the rest of the app's data.
   function loadConfig() {
-    try { return JSON.parse(localStorage.getItem(CONFIG_KEY) || "null"); } catch (e) { return null; }
+    try { return JSON.parse(sessionStorage.getItem(CONFIG_KEY) || "null"); } catch (e) { return null; }
   }
-  function saveConfig(cfg) { localStorage.setItem(CONFIG_KEY, JSON.stringify(cfg)); }
-  function clearConfig() { localStorage.removeItem(CONFIG_KEY); }
+  function saveConfig(cfg) { sessionStorage.setItem(CONFIG_KEY, JSON.stringify(cfg)); }
+  function clearConfig() { sessionStorage.removeItem(CONFIG_KEY); }
 
   async function ensureTokenClient(config) {
     await loadGis();
@@ -227,10 +231,14 @@
     btn = btn || document.querySelector(".mt-drive-btn");
     if (!btn) return;
     const hasConfig = !!loadConfig();
-    btn.classList.toggle("is-connected", hasConfig && !!accessToken);
+    // hasConfig alone isn't "connected" anymore since disconnecting keeps
+    // the remembered client ID (see the disconnect handler) - only
+    // accessToken means an active Google sign-in.
+    btn.classList.toggle("is-connected", !!accessToken);
     btn.classList.toggle("has-sync-warning", hasConfig && !!lastSyncError);
     if (hasConfig && lastSyncError) btn.title = "Google Drive — dernière synchro échouée : " + describeError(lastSyncError);
-    else if (hasConfig) btn.title = "Google Drive — connecté";
+    else if (accessToken) btn.title = "Google Drive — connecté";
+    else if (hasConfig) btn.title = "Google Drive — identifiant enregistré, non connecté";
     else btn.title = "Connecter Google Drive";
   }
 
@@ -311,8 +319,10 @@
     const disconnectBtn = overlay.querySelector('[data-action="disconnect"]');
     if (disconnectBtn) {
       disconnectBtn.addEventListener("click", () => {
+        // Deliberately keeps the ID client OAuth (saveConfig'd separately) -
+        // disconnecting only forgets the active Google sign-in, not the
+        // client ID, so reconnecting doesn't require retyping it.
         stopAutoSync();
-        clearConfig();
         accessToken = null;
         tokenExpiry = 0;
         fileId = null;
