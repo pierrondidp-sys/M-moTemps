@@ -169,8 +169,9 @@
     const titleField = overlay.querySelector('input[name="title"]');
     const dateField = overlay.querySelector('input[name="date"]');
     const startField = overlay.querySelector('input[name="start"]');
+    const endField = overlay.querySelector('input[name="end"]');
     const notesField = overlay.querySelector('textarea[name="notes"]');
-    if (!titleField || !dateField || !startField || !notesField) return;
+    if (!titleField || !dateField || !startField || !endField || !notesField) return;
 
     wireField(titleField, "Dicter le titre", (text, field) => {
       field.value = text.charAt(0).toUpperCase() + text.slice(1);
@@ -182,7 +183,13 @@
       field.value = parsed;
     });
 
-    wireField(startField, "Dicter l'heure", (text, field) => {
+    wireField(startField, "Dicter l'heure de début", (text, field) => {
+      const parsed = parseSpokenTime(text);
+      if (!parsed) return false;
+      field.value = parsed;
+    });
+
+    wireField(endField, "Dicter l'heure de fin", (text, field) => {
       const parsed = parseSpokenTime(text);
       if (!parsed) return false;
       field.value = parsed;
