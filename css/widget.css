@@ -121,6 +121,7 @@ html.mt-widget-mode body{
 
 .mt-header{
   display:flex;
+  flex-wrap:wrap;
   align-items:center;
   gap:16px;
   padding:2px 4px 16px;
