@@ -39,6 +39,7 @@
     MemoTempsFlipClock.mount(document.querySelector('.mt-header'));
     MemoTempsBackup.attach(window.mtWidget);
     MemoTempsVoiceInput.attach();
+    MemoTempsReminder.attach();
 
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {

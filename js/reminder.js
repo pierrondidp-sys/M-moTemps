@@ -4,6 +4,7 @@
   let plateEl = null;
   let normalHTML = null;
   let currentEventId = null;
+  let permBtn = null;
 
   function frenchTime(t) {
     const [h, m] = t.split(":").map(Number);
@@ -45,11 +46,62 @@
     if (plateEl && normalHTML === null) normalHTML = plateEl.innerHTML;
   }
 
+  // Real OS-level notification (Windows toast, Android banner...), shown
+  // through the service worker rather than `new Notification(...)` directly -
+  // Chrome on Android refuses the plain constructor from a page and requires
+  // ServiceWorkerRegistration.showNotification() instead, so this is the one
+  // form that works on both desktop and phone.
+  function notifyOS(ev) {
+    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+    if (!("serviceWorker" in navigator)) return;
+    navigator.serviceWorker.ready.then((reg) => {
+      reg.showNotification(`⏰ ${ev.title}`, {
+        body: `${frenchTime(ev.start)} aujourd'hui`,
+        icon: "icons/icon-192.png",
+        badge: "icons/icon-192.png",
+        tag: `mt-reminder-${ev.id}`,
+        renotify: true
+      }).catch(() => {});
+    }).catch(() => {});
+  }
+
+  function updateButtonState() {
+    if (!permBtn) return;
+    const state = typeof Notification === "undefined" ? "unsupported" : Notification.permission;
+    permBtn.textContent = state === "granted" ? "🔔" : "🔕";
+    permBtn.classList.toggle("is-connected", state === "granted");
+    const label = state === "granted" ? "Notifications activées"
+      : state === "denied" ? "Notifications bloquées par le navigateur"
+      : "Activer les notifications";
+    permBtn.setAttribute("aria-label", label);
+    permBtn.title = label;
+  }
+
+  function injectButton() {
+    const actions = document.querySelector(".mt-header-actions");
+    if (!actions || actions.querySelector(".mt-notif-btn") || typeof Notification === "undefined") return;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "mt-icon-btn mt-notif-btn";
+    const addBtn = actions.querySelector(".mt-add-btn");
+    actions.insertBefore(btn, addBtn);
+    permBtn = btn;
+    btn.addEventListener("click", () => {
+      if (Notification.permission === "default") Notification.requestPermission().then(updateButtonState);
+    });
+    updateButtonState();
+  }
+
+  function attach() {
+    injectButton();
+  }
+
   function show(ev) {
     ensurePlate();
     if (!plateEl || currentEventId === ev.id) return;
 
     currentEventId = ev.id;
+    notifyOS(ev);
     plateEl.classList.add("is-reminder");
     plateEl.innerHTML = `
       <div class="mt-bulb-reminder" role="button" tabindex="0" aria-label="Rappel : ${escapeHtml(ev.title)} à ${frenchTime(ev.start)}. Cliquer pour masquer.">
@@ -81,5 +133,5 @@
     if (currentEventId === eventId) hide();
   }
 
-  window.MemoTempsReminder = { show, hide, hideIfShowing };
+  window.MemoTempsReminder = { show, hide, hideIfShowing, attach };
 })();

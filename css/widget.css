@@ -360,14 +360,16 @@ html.mt-widget-mode body{
 .mt-icon-btn:active{transform:translateY(1px);}
 .mt-sound-btn[aria-pressed="false"]{opacity:.55;}
 .mt-outlook-btn.is-connected,
-.mt-drive-btn.is-connected{box-shadow:
+.mt-drive-btn.is-connected,
+.mt-notif-btn.is-connected{box-shadow:
     0 1px 0 rgba(255,255,255,.9) inset,
     0 -2px 4px rgba(60,52,32,.45) inset,
     0 2px 4px rgba(0,0,0,.35),
     0 0 0 1px var(--r-green-dark),
     0 0 10px var(--r-green-glow);}
 .mt-outlook-btn.is-connected::after,
-.mt-drive-btn.is-connected::after{
+.mt-drive-btn.is-connected::after,
+.mt-notif-btn.is-connected::after{
   background:radial-gradient(circle at 35% 30%,#c9f26a,var(--r-green) 60%,var(--r-green-dark));
   box-shadow:0 0 6px var(--r-green);
 }

@@ -1,4 +1,4 @@
-const CACHE_NAME = "mt-cache-v28";
+const CACHE_NAME = "mt-cache-v29";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -45,6 +45,21 @@ self.addEventListener("fetch", (event) => {
         })
         .catch(() => cached);
       return cached || network;
+    })
+  );
+});
+
+// Tapping a reminder notification should focus the app if it's already
+// open somewhere, or open a new tab/window if it isn't - not just dismiss
+// the notification and leave the user having to go find it themselves.
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) {
+        if ("focus" in client) return client.focus();
+      }
+      if (self.clients.openWindow) return self.clients.openWindow("./");
     })
   );
 });
