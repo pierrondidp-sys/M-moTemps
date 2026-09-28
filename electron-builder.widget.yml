@@ -25,6 +25,9 @@ win:
   icon: build/icon.ico
 nsis:
   oneClick: false
+  # perMachine: false is deliberate and must stay false - it installs to the
+  # user's own profile (%LOCALAPPDATA%) with an "asInvoker" manifest instead
+  # of Program Files, so install and launch never need admin/UAC elevation.
   perMachine: false
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
