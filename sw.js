@@ -1,4 +1,4 @@
-const CACHE_NAME = "mt-cache-v29";
+const CACHE_NAME = "mt-cache-v30";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -9,6 +9,7 @@ const APP_SHELL = [
   "./js/flipclock.js",
   "./js/backup.js",
   "./js/reminder.js",
+  "./js/push.js",
   "./manifest.json",
   "./icons/icon-192.png",
   "./icons/icon-512.png"
@@ -60,6 +61,25 @@ self.addEventListener("notificationclick", (event) => {
         if ("focus" in client) return client.focus();
       }
       if (self.clients.openWindow) return self.clients.openWindow("./");
+    })
+  );
+});
+
+// Real background push: fired by scripts/send-reminders.mjs (GitHub Actions
+// cron) via web-push, so this runs even if the app/tab is fully closed -
+// unlike reminder.js's notifyOS(), which only fires while the page is alive.
+self.addEventListener("push", (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch (e) { /* non-JSON payload: use defaults below */ }
+
+  const title = data.title || "Mémo Temps";
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body: data.body || "",
+      icon: "icons/icon-192.png",
+      badge: "icons/icon-192.png",
+      tag: data.tag || "mt-push",
+      renotify: true
     })
   );
 });

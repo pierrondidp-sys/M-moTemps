@@ -57,24 +57,42 @@ Configuration (une fois par version à synchroniser) :
 
 Le bouton 📁 devient plein (connecté) une fois la synchro réussie, ou affiche un contour rouge en cas d'échec — cliquer dessus affiche le message d'erreur exact.
 
-## Rappels par e-mail (15 minutes avant un évènement)
+## Rappels automatiques, même application complètement fermée
 
-Un rappel par e-mail peut être envoyé automatiquement ~15 minutes avant chaque objectif/rendez-vous, **même si l'application ou le téléphone est fermé** à ce moment-là. Comme l'application elle-même n'a pas de serveur, cette partie tourne indépendamment via un workflow GitHub Actions planifié (`.github/workflows/event-reminders.yml`, toutes les 5 minutes) qui lit directement le fichier `memo-temps-events.json` sur Google Drive et envoie l'e-mail via Gmail. Script : `scripts/send-reminders.mjs`.
+Un rappel peut être envoyé automatiquement ~15 minutes avant chaque objectif/rendez-vous **même si l'application ou le téléphone est totalement fermé** à ce moment-là — pas seulement en arrière-plan. Comme l'application elle-même n'a pas de serveur, cette partie tourne indépendamment via un workflow GitHub Actions planifié (`.github/workflows/event-reminders.yml`, toutes les 5 minutes) qui lit directement le fichier `memo-temps-events.json` sur Google Drive. Script : `scripts/send-reminders.mjs`.
 
-Configuration ponctuelle nécessaire (une seule fois) :
+Deux canaux possibles, **indépendants l'un de l'autre** — configurez l'un, l'autre, ou les deux :
 
-1. **Compte de service Google** (pour lire le fichier Drive sans connexion interactive) : dans [Google Cloud Console](https://console.cloud.google.com/) → *IAM et administration* → *Comptes de service* → *Créer un compte de service* → une fois créé, onglet *Clés* → *Ajouter une clé* → *Créer une clé* → format **JSON**. Conserver ce fichier (c'est un secret).
-2. **Partager le fichier Drive** : dans Google Drive, clic droit sur `memo-temps-events.json` → *Partager* → coller l'adresse `...@...iam.gserviceaccount.com` du compte de service (visible dans le JSON sous `client_email`) → rôle **Lecteur**.
-3. **Compte Gmail dédié à l'envoi** : créez (ou utilisez) un compte Gmail grand public **distinct** de votre adresse habituelle, utilisé uniquement comme relais technique d'envoi (ex. `memotemps.rappels@gmail.com`) — évitez une adresse Workspace/pro, dont les politiques de sécurité de l'organisation peuvent bloquer les mots de passe d'application. Sur ce compte : activer la validation en 2 étapes ([myaccount.google.com/security](https://myaccount.google.com/security)), puis générer **un mot de passe d'application par application qui l'utilise** sur [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords) (donnez un nom explicite à chaque génération, ex. « Mémo Temps rappels » — chacun peut être révoqué séparément). Le même compte peut ainsi servir de relais à plusieurs applications sans qu'elles partagent le même mot de passe.
-4. **Secrets GitHub** : sur la page du dépôt → *Settings* → *Secrets and variables* → *Actions* → *New repository secret*, ajouter :
-   - `GOOGLE_SERVICE_ACCOUNT_KEY` : contenu complet du fichier JSON de l'étape 1
-   - `GMAIL_USER` : adresse du compte Gmail dédié de l'étape 3
-   - `GMAIL_APP_PASSWORD` : le mot de passe d'application généré spécifiquement pour Mémo Temps à l'étape 3
-   - `GMAIL_FROM_NAME` *(optionnel)* : nom affiché comme expéditeur pour les destinataires (par défaut « Mémo Temps ») — permet de distinguer Mémo Temps d'une autre application utilisant le même compte relais, sans changer l'adresse
-   - `REMINDER_EMAIL_TO` : adresse qui doit **recevoir** les rappels (peut être votre adresse @seineouest.fr habituelle — indépendante du compte technique d'envoi)
-5. Tester : onglet **Actions** → **Send event reminders** → **Run workflow**.
+- **Notifications push** (recommandé) : une vraie notification système (bannière Android, toast Windows) sur chaque appareil où vous avez cliqué 🔔, sans e-mail à lire.
+- **E-mail** : dans votre boîte de réception habituelle.
 
-La fenêtre d'envoi est volontairement large (10 à 20 minutes avant l'évènement, réglable via les variables `REMINDER_MINUTES_BEFORE`/`REMINDER_WINDOW_MINUTES` en haut du script) pour absorber les délais d'exécution de GitHub Actions, qui ne garantit pas un déclenchement à la minute près.
+### Configuration commune (nécessaire dans tous les cas)
+
+1. **Compte de service Google** (pour lire — et, pour le push, mettre à jour — le fichier Drive sans connexion interactive) : dans [Google Cloud Console](https://console.cloud.google.com/) → *IAM et administration* → *Comptes de service* → *Créer un compte de service* → une fois créé, onglet *Clés* → *Ajouter une clé* → *Créer une clé* → format **JSON**. Conserver ce fichier (c'est un secret).
+2. **Partager le fichier Drive** : dans Google Drive, clic droit sur `memo-temps-events.json` → *Partager* → coller l'adresse `...@...iam.gserviceaccount.com` du compte de service (visible dans le JSON sous `client_email`) → rôle **Éditeur** (pas seulement Lecteur : nécessaire pour que le script puisse retirer les abonnements aux notifications push qui ont expiré).
+3. **Secret GitHub** `GOOGLE_SERVICE_ACCOUNT_KEY` : contenu complet du fichier JSON de l'étape 1 (*Settings* → *Secrets and variables* → *Actions* → *New repository secret*).
+
+### Canal push (notifications système, pas d'e-mail)
+
+1. Les clés VAPID nécessaires ont déjà été générées pour ce dépôt — la clé publique est déjà intégrée dans `js/push.js`. Demandez la clé privée correspondante (générée avec vous, jamais committée dans le dépôt) pour l'étape suivante.
+2. Secrets GitHub à ajouter :
+   - `VAPID_PUBLIC_KEY` : la même clé publique que celle intégrée dans `js/push.js`
+   - `VAPID_PRIVATE_KEY` : la clé privée correspondante — **jamais** dans le code, uniquement ce secret
+   - `VAPID_SUBJECT` : une adresse de contact au format `mailto:vous@example.com` (transmise aux services de push Google/Mozilla en cas de souci, jamais visible des destinataires)
+3. Dans **chaque appareil/navigateur** où vous voulez recevoir les notifications (téléphone, PC, widget...) : connecter Google Drive (bouton 📁, voir la section *Synchroniser les données...* ci-dessus) **puis** cliquer sur 🔔 pour autoriser les notifications — ça crée et synchronise automatiquement l'abonnement push de cet appareil via le même fichier Drive.
+
+### Canal e-mail (optionnel)
+
+1. **Compte Gmail dédié à l'envoi** : créez (ou utilisez) un compte Gmail grand public **distinct** de votre adresse habituelle, utilisé uniquement comme relais technique d'envoi (ex. `memotemps.rappels@gmail.com`) — évitez une adresse Workspace/pro, dont les politiques de sécurité de l'organisation peuvent bloquer les mots de passe d'application. Sur ce compte : activer la validation en 2 étapes ([myaccount.google.com/security](https://myaccount.google.com/security)), puis générer **un mot de passe d'application par application qui l'utilise** sur [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords) (donnez un nom explicite à chaque génération, ex. « Mémo Temps rappels » — chacun peut être révoqué séparément). Le même compte peut ainsi servir de relais à plusieurs applications sans qu'elles partagent le même mot de passe.
+2. Secrets GitHub à ajouter :
+   - `GMAIL_USER` : adresse du compte Gmail dédié de l'étape 1
+   - `GMAIL_APP_PASSWORD` : le mot de passe d'application généré spécifiquement pour Mémo Temps
+   - `GMAIL_FROM_NAME` *(optionnel)* : nom affiché comme expéditeur pour les destinataires (par défaut « Mémo Temps »)
+   - `REMINDER_EMAIL_TO` : adresse qui doit **recevoir** les rappels (indépendante du compte technique d'envoi)
+
+### Tester
+
+Onglet **Actions** → **Send event reminders** → **Run workflow**. La fenêtre d'envoi est volontairement large (10 à 20 minutes avant l'évènement, réglable via les variables `REMINDER_MINUTES_BEFORE`/`REMINDER_WINDOW_MINUTES` en haut du script) pour absorber les délais d'exécution de GitHub Actions, qui ne garantit pas un déclenchement à la minute près.
 
 ## Intégration dans une autre page
 

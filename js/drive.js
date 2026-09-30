@@ -107,7 +107,7 @@
       headers: { Authorization: "Bearer " + token, "Content-Type": `multipart/related; boundary=${BOUNDARY}` },
       body: multipartBody(
         { name: FILE_NAME, mimeType: "application/json" },
-        JSON.stringify({ app: "MemoTemps", version: 1, events: [], tombstones: {} })
+        JSON.stringify({ app: "MemoTemps", version: 1, events: [], tombstones: {}, pushSubscriptions: [] })
       )
     });
     if (!createRes.ok) throw new Error("drive-" + createRes.status);
@@ -135,16 +135,38 @@
     if (!res.ok) throw new Error("drive-" + res.status);
   }
 
+  // Upserts this device's current push subscription (if any) into the
+  // remote list by endpoint - the one stable identifier for a subscription.
+  // Never removes other devices' entries here: a subscription going stale
+  // is discovered server-side (a 410 from the push service), and pruned
+  // there directly in the same Drive file - see scripts/send-reminders.mjs.
+  // This device only ever adds/refreshes its own.
+  function mergeSubscriptions(remoteList, localSub) {
+    const list = Array.isArray(remoteList) ? remoteList.slice() : [];
+    if (!localSub) return list;
+    const json = typeof localSub.toJSON === "function" ? localSub.toJSON() : localSub;
+    if (!json || !json.endpoint) return list;
+    const idx = list.findIndex((s) => s && s.endpoint === json.endpoint);
+    const entry = Object.assign({}, json, { updatedAt: Date.now() });
+    if (idx >= 0) list[idx] = entry; else list.push(entry);
+    return list;
+  }
+
   // Pulls the remote file, merges it into the local events (upsert by id,
   // never deletes - same safe merge widget.js already uses for JSON
   // import/export), then pushes the merged result back so both sides end
   // up consistent - a lightweight two-way sync around a single shared file.
+  // Also carries this device's push subscription along for the ride (see
+  // mergeSubscriptions) - widget.js's export/import knows nothing about it,
+  // it's attached to the payload here.
   async function sync(config, opts = {}) {
     const token = await getToken(config, opts);
     const id = await findOrCreateFile(token);
     const remote = await downloadFile(token, id);
     widget.importEvents(remote);
     const merged = widget.exportEvents();
+    const localSub = window.MemoTempsPush ? await window.MemoTempsPush.getSubscription() : null;
+    merged.pushSubscriptions = mergeSubscriptions(remote.pushSubscriptions, localSub);
     await uploadFile(token, id, merged);
     return merged.events.length;
   }

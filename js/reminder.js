@@ -75,6 +75,11 @@
       : "Activer les notifications";
     permBtn.setAttribute("aria-label", label);
     permBtn.title = label;
+    // Idempotent: reuses the existing push subscription if there is one and
+    // it's still valid, only creates a new one if needed (e.g. the browser
+    // expired it). Runs both right after granting and on every page load
+    // while already granted, so a lapsed subscription gets renewed.
+    if (state === "granted" && window.MemoTempsPush) window.MemoTempsPush.ensureSubscribed();
   }
 
   function injectButton() {

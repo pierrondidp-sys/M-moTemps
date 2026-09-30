@@ -6,25 +6,28 @@
 //  1. reads the user's memo-temps-events.json straight from Google Drive,
 //     authenticating as a service account (no interactive login, no
 //     refresh-token expiry issues - unlike the app's own OAuth popup flow);
-//  2. finds events starting soon that haven't been e-mailed yet;
-//  3. sends a reminder e-mail for each one via Gmail SMTP, authenticating
-//     with a dedicated Gmail account's app password (GMAIL_USER /
-//     GMAIL_APP_PASSWORD) - deliberately a separate, plain consumer Gmail
-//     account used only as a sending relay, not the Workspace domain
-//     account: app passwords on @seineouest.fr turned out to be disabled by
-//     the org's security policy, and neither domain-wide delegation nor an
-//     "Internal" OAuth app were reachable there either (no exposed admin
-//     console page, no Cloud org resource). REMINDER_EMAIL_TO still controls
-//     where the reminder actually lands, independently of who sends it;
-//  4. records what it just sent in automation/notified-state.json so the
-//     next run (a few minutes later) doesn't send it again. That file is
+//  2. finds events starting soon that haven't been notified yet;
+//  3. notifies on whichever channel(s) are configured, independently of
+//     each other - neither blocks the other:
+//       - e-mail via Gmail SMTP (GMAIL_USER/GMAIL_APP_PASSWORD), if set;
+//       - Web Push (VAPID_*), to every device subscribed via the app's
+//         Drive-connected "🔔 Activer les notifications" button (js/push.js
+//         + js/drive.js upload the subscription into the same Drive file
+//         this script reads) - this is what makes a *closed* phone/PC app
+//         still get a real OS notification, not just e-mail;
+//  4. records what it just notified in automation/notified-state.json so
+//     the next run (a few minutes later) doesn't repeat it. That file is
 //     committed back to the repo by the workflow step that calls this
 //     script - kept entirely separate from the app's own Drive file so the
-//     two systems never fight over the same JSON shape.
+//     two systems never fight over the same JSON shape;
+//  5. drops push subscriptions the push service reports as gone (410/404)
+//     and writes the trimmed list back to the same Drive file, so dead
+//     devices don't accumulate forever and get retried every run.
 
 import { readFile, writeFile } from "node:fs/promises";
 import { GoogleAuth } from "google-auth-library";
 import nodemailer from "nodemailer";
+import webpush from "web-push";
 
 const DRIVE_FILE_NAME = process.env.DRIVE_FILE_NAME || "memo-temps-events.json";
 const STATE_PATH = new URL("../automation/notified-state.json", import.meta.url);
@@ -46,11 +49,16 @@ function parseServiceAccountKey() {
   return JSON.parse(json);
 }
 
+// Needs read+write (not just drive.readonly): pruning expired push
+// subscriptions means patching the same Drive file back. The file is
+// shared with the service account directly (not created by it), so this
+// needs the general "drive" scope rather than the more restrictive
+// "drive.file" (which only covers files the app itself created/opened).
 async function getDriveAccessToken() {
   const credentials = parseServiceAccountKey();
   const auth = new GoogleAuth({
     credentials,
-    scopes: ["https://www.googleapis.com/auth/drive.readonly"]
+    scopes: ["https://www.googleapis.com/auth/drive"]
   });
   const client = await auth.getClient();
   const { token } = await client.getAccessToken();
@@ -68,22 +76,38 @@ async function findFileId(token) {
   const file = data.files && data.files[0];
   if (!file) {
     throw new Error(
-      `Fichier "${DRIVE_FILE_NAME}" introuvable. Vérifiez qu'il a bien été partagé (au moins en lecture) ` +
-      `avec l'adresse e-mail du compte de service (client_email de la clé JSON).`
+      `Fichier "${DRIVE_FILE_NAME}" introuvable. Vérifiez qu'il a bien été partagé avec l'adresse e-mail du ` +
+      `compte de service (client_email de la clé JSON), avec le rôle Éditeur (pas seulement Lecteur - ` +
+      `nécessaire pour que ce script puisse retirer les abonnements aux notifications push expirés).`
     );
   }
   return file.id;
 }
 
-async function downloadEvents(token, fileId) {
+async function downloadDriveFile(token, fileId) {
   const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
     headers: { Authorization: "Bearer " + token }
   });
   if (!res.ok) throw new Error(`Drive files.get a échoué (${res.status}) : ${await res.text()}`);
   const text = await res.text();
-  if (!text.trim()) return [];
+  if (!text.trim()) return { events: [], pushSubscriptions: [] };
   const parsed = JSON.parse(text);
-  return Array.isArray(parsed) ? parsed : (parsed.events || []);
+  if (Array.isArray(parsed)) return { events: parsed, pushSubscriptions: [] };
+  return {
+    events: parsed.events || [],
+    pushSubscriptions: parsed.pushSubscriptions || [],
+    raw: parsed
+  };
+}
+
+async function uploadPushSubscriptions(token, fileId, file, subscriptions) {
+  const payload = Object.assign({}, file.raw, { pushSubscriptions: subscriptions });
+  const res = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
+    method: "PATCH",
+    headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) throw new Error(`Drive files.update a échoué (${res.status}) : ${await res.text()}`);
 }
 
 async function loadState() {
@@ -135,22 +159,56 @@ function formatEmail(ev) {
   return { subject, text: lines.join("\n") };
 }
 
-async function sendReminder(transporter, ev) {
+function formatPushPayload(ev) {
+  const timeLabel = ev.end ? `${ev.start} – ${ev.end}` : ev.start;
+  return {
+    title: `⏰ ${ev.title}`,
+    body: ev.notes ? `${timeLabel} aujourd'hui — ${ev.notes}` : `${timeLabel} aujourd'hui`,
+    tag: `mt-reminder-${ev.id}`
+  };
+}
+
+async function sendReminderEmail(transporter, ev) {
   const { subject, text } = formatEmail(ev);
   const fromName = process.env.GMAIL_FROM_NAME || "Mémo Temps";
   await transporter.sendMail({
-    from: `"${fromName}" <${requireEnv("GMAIL_USER")}>`,
-    to: process.env.REMINDER_EMAIL_TO || requireEnv("GMAIL_USER"),
+    from: `"${fromName}" <${process.env.GMAIL_USER}>`,
+    to: process.env.REMINDER_EMAIL_TO || process.env.GMAIL_USER,
     subject,
     text
   });
+}
+
+// Sends to every subscription; a subscription the push service reports as
+// gone (410/404 - uninstalled app, revoked permission, expired) is dropped
+// from the list returned. Any other error (rate limit, transient network
+// issue) leaves that subscription in place for the next run to retry.
+async function sendPushToAll(subscriptions, payload) {
+  const stillValid = [];
+  for (const sub of subscriptions) {
+    try {
+      await webpush.sendNotification(sub, JSON.stringify(payload));
+      stillValid.push(sub);
+    } catch (err) {
+      const short = (sub.endpoint || "").slice(-24);
+      if (err.statusCode === 404 || err.statusCode === 410) {
+        console.log(`Abonnement push expiré, retiré (…${short}).`);
+      } else {
+        console.error(`Envoi push échoué pour …${short} : ${err.message}`);
+        stillValid.push(sub);
+      }
+    }
+  }
+  return stillValid;
 }
 
 async function main() {
   const now = Date.now();
   const token = await getDriveAccessToken();
   const fileId = await findFileId(token);
-  const events = await downloadEvents(token, fileId);
+  const file = await downloadDriveFile(token, fileId);
+  const events = file.events;
+  let subscriptions = file.pushSubscriptions;
 
   let state = pruneState(await loadState(), now);
   const due = dueEvents(events, state, now);
@@ -161,21 +219,47 @@ async function main() {
     return;
   }
 
-  const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: { user: requireEnv("GMAIL_USER"), pass: requireEnv("GMAIL_APP_PASSWORD") }
-  });
+  const emailReady = Boolean(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD);
+  const pushReady = Boolean(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY && process.env.VAPID_SUBJECT);
+  if (!emailReady && !pushReady) {
+    console.log("Aucun canal de notification configuré (ni e-mail, ni notifications push) - rien n'est envoyé.");
+  }
+
+  const transporter = emailReady
+    ? nodemailer.createTransport({ service: "gmail", auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD } })
+    : null;
+
+  if (pushReady) {
+    webpush.setVapidDetails(process.env.VAPID_SUBJECT, process.env.VAPID_PUBLIC_KEY, process.env.VAPID_PRIVATE_KEY);
+  }
 
   for (const ev of due) {
-    await sendReminder(transporter, ev);
+    if (transporter) {
+      try {
+        await sendReminderEmail(transporter, ev);
+        console.log(`E-mail envoyé pour "${ev.title}" (${ev.date} ${ev.start}).`);
+      } catch (err) {
+        console.error(`Échec de l'e-mail pour "${ev.title}" : ${err.message}`);
+      }
+    }
+    if (pushReady && subscriptions.length) {
+      subscriptions = await sendPushToAll(subscriptions, formatPushPayload(ev));
+      console.log(`Notification push envoyée pour "${ev.title}" à ${subscriptions.length} appareil(s).`);
+    }
     state[`${ev.id}:${ev.updatedAt || 0}`] = { notifiedAt: now, eventStart: eventStartMs(ev) };
-    console.log(`E-mail envoyé pour "${ev.title}" (${ev.date} ${ev.start}).`);
   }
 
   await writeFile(STATE_PATH, JSON.stringify(state, null, 2) + "\n");
+
+  if (pushReady && file.raw) {
+    await uploadPushSubscriptions(token, fileId, file, subscriptions);
+  }
 }
 
-export { eventStartMs, dueEvents, pruneState, formatEmail, findFileId, downloadEvents, main };
+export {
+  eventStartMs, dueEvents, pruneState, formatEmail, formatPushPayload,
+  findFileId, downloadDriveFile, sendPushToAll, main
+};
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   main().catch((err) => {

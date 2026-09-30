@@ -36,6 +36,9 @@ jobs:
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           GMAIL_FROM_NAME: ${{ secrets.GMAIL_FROM_NAME }}
           REMINDER_EMAIL_TO: ${{ secrets.REMINDER_EMAIL_TO }}
+          VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
         run: npm run send-reminders
 
       - name: Commit updated notification state

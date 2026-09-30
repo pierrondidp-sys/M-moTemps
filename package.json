@@ -13,7 +13,8 @@
   },
   "dependencies": {
     "google-auth-library": "^9.15.1",
-    "nodemailer": "^6.9.16"
+    "nodemailer": "^6.9.16",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "electron": "^37.0.0",
@@ -38,7 +39,9 @@
       "buildResources": "build"
     },
     "win": {
-      "target": ["nsis"],
+      "target": [
+        "nsis"
+      ],
       "icon": "build/icon.ico"
     },
     "nsis": {
